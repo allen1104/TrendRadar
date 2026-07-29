@@ -1,0 +1,19 @@
+# auth 模块本地验证用的最小依赖集
+# 跳过：anthropic / google-genai / jieba / yake / trafilatura / feedparser / selectolax
+# 完整开发依赖见 pyproject.toml
+
+# Web
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+pydantic-settings>=2.6
+python-multipart>=0.0.12
+
+# Auth + 安全
+pyjwt>=2.10
+argon2-cffi>=23.1
+cryptography>=43.0
+
+# 测试
+pytest>=8.3
+pytest-asyncio>=0.24

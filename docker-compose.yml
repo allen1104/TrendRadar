@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: trendradar-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trendradar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trendradar}
+      POSTGRES_DB: ${POSTGRES_DB:-trendradar}
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-trendradar}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: trendradar-redis
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trendradar-api
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    ports:
+      - '8000:8000'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trendradar-worker
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      api: { condition: service_started }
+    command: celery -A app.worker worker -l info --concurrency=4
+
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trendradar-beat
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      api: { condition: service_started }
+    command: celery -A app.worker beat -l info
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trendradar-web
+    ports:
+      - '5173:80'
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:

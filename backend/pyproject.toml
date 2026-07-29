@@ -1,0 +1,90 @@
+[project]
+name = "trendradar-backend"
+version = "0.1.0"
+description = "TrendRadar — AI 驱动的全球科技热点发现平台（后端）"
+requires-python = ">=3.12"
+dependencies = [
+    # Web
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "python-multipart>=0.0.12",
+    # DB
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pgvector>=0.3.6",
+    # Cache / Queue
+    "redis>=5.2",
+    "celery[redis]>=5.4",
+    # Auth
+    "pyjwt>=2.10",
+    "argon2-cffi>=23.1",
+    "cryptography>=43.0",
+    # HTTP / 采集
+    "httpx>=0.28",
+    "tenacity>=9.0",
+    "selectolax>=0.3.21",
+    "trafilatura>=2.0",
+    "bleach>=6.2",
+    "python-dateutil>=2.9",
+    "feedparser>=6.0",
+    # NLP
+    "jieba>=0.42.1",
+    "yake>=0.4.8",
+    # AI
+    "pydantic-ai>=0.0.14",
+    "openai>=1.57",
+    "anthropic>=0.40",
+    "google-genai>=0.3",
+    # 其他
+    "structlog>=24.4",
+    "croniter>=5.0",
+    "jinja2>=3.1",
+    "orjson>=3.10",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-python-dateutil",
+    "faker>=33.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "S"]
+ignore = ["S101", "B008", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "N"]
+"alembic/*" = ["E501", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["alembic/"]
+
+[[tool.mypy.overrides]]
+module = ["trafilatura.*", "jieba.*", "yake.*", "feedparser.*", "selectolax.*", "croniter.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/scripts/*", "alembic/*"]

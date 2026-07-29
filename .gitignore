@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# 环境与密钥
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# 模型文件
+backend/models/
+
+# 生成产物
+frontend/src/lib/api/schema.d.ts
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
