@@ -19,7 +19,8 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 一期（MVP）：
 - [x] auth — 认证与权限
 - [ ] source — 采集源与插件
-- [x] ai-engine — LLM 统一网关
+- [x] ai-engine — LLM 统一网关 · [Prompt 索引](backend/app/modules/ai/PROMPTS.md)
+- [x] source — 采集源与插件 · [Module README](backend/app/modules/source/README.md) · [Prompt 索引](backend/app/modules/ai/PROMPTS.md)
 - [ ] pipeline — 清洗与去重聚合
 - [ ] hotspot — 热点中心
 - [ ] admin — 管理后台
@@ -129,6 +130,8 @@ frontend/src/
 
 - 需求总览: @SPEC.md
 - 模块需求: @doc/SPEC-auth.md · @doc/SPEC-source.md · @doc/SPEC-ai-engine.md · @doc/SPEC-pipeline.md · @doc/SPEC-hotspot.md · @doc/SPEC-admin.md · @doc/SPEC-collection.md · @doc/SPEC-trend.md · @doc/SPEC-assistant.md · @doc/SPEC-creation.md · @doc/SPEC-report.md
+- Prompt 索引: @backend/app/modules/ai/PROMPTS.md（ai-engine 模块所有 Prompt 模板的索引与修改 SOP）
+- source 模块: @backend/app/modules/source/README.md（插件表 + 注册表机制 + 待办）
 - 开发进度: @.claude/progress/PROGRESS.md
 - 后端规范: @backend/CLAUDE.md
 - 前端规范: @frontend/CLAUDE.md

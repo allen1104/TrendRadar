@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -581,12 +581,34 @@ function PromptDetail({ promptId }: { promptId: number }) {
   const [varsText, setVarsText] = useState('')
   const [dryResult, setDryResult] = useState<DryRunResult | null>(null)
   const [dryError, setDryError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'view' | 'edit' | 'new'>('view')
 
   const activate = useMutation({
     mutationFn: aiApi.activatePrompt,
     onSuccess: () => {
       toast.success('已激活')
       void queryClient.invalidateQueries({ queryKey: ['ai', 'prompts'] })
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  })
+  const update = useMutation({
+    mutationFn: (payload: Parameters<typeof aiApi.updatePrompt>[1]) =>
+      aiApi.updatePrompt(promptId, payload),
+    onSuccess: () => {
+      toast.success('已保存')
+      setMode('view')
+      void queryClient.invalidateQueries({ queryKey: ['ai', 'prompts'] })
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  })
+  const createNew = useMutation({
+    mutationFn: aiApi.createPrompt,
+    onSuccess: (newPrompt) => {
+      toast.success(`已创建 v${newPrompt.version}`)
+      setMode('view')
+      // 切到新版本
+      void queryClient.invalidateQueries({ queryKey: ['ai', 'prompts'] })
+      void queryClient.invalidateQueries({ queryKey: ['ai', 'prompt', newPrompt.id] })
     },
     onError: (e) => toast.error((e as ApiError).message),
   })
@@ -628,47 +650,115 @@ function PromptDetail({ promptId }: { promptId: number }) {
         <div className="flex gap-2">
           {data.isActive ? (
             <Badge variant="success">当前生效</Badge>
-          ) : (
+          ) : mode === 'view' ? (
             <Button size="sm" loading={activate.isPending} onClick={() => activate.mutate(data.id)}>
               激活此版本
+            </Button>
+          ) : null}
+          {mode === 'view' && !data.isActive && (
+            <Button size="sm" variant="outline" onClick={() => setMode('edit')}>
+              编辑
+            </Button>
+          )}
+          {mode === 'view' && (
+            <Button size="sm" variant="outline" onClick={() => setMode('new')}>
+              + 新建版本
+            </Button>
+          )}
+          {mode !== 'view' && (
+            <Button size="sm" variant="ghost" onClick={() => setMode('view')}>
+              取消
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <div className="text-muted-foreground">模型</div>
-            <div className="font-mono text-xs">{data.modelAlias || '(default)'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">温度</div>
-            <div>{data.temperature}</div>
-          </div>
-          <div className="col-span-2">
-            <div className="text-muted-foreground">变量</div>
-            <div className="flex flex-wrap gap-1">
-              {data.variables.map((v) => (
-                <code key={v} className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                  {v}
-                </code>
-              ))}
+        {mode === 'view' ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">模型</div>
+                <div className="font-mono text-xs">{data.modelAlias || '(default)'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">温度</div>
+                <div>{data.temperature}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-muted-foreground">变量</div>
+                <div className="flex flex-wrap gap-1">
+                  {data.variables.map((v) => (
+                    <code key={v} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {v}
+                    </code>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div>
-          <Label>System Prompt</Label>
-          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {data.systemPrompt}
-          </pre>
-        </div>
-        <div>
-          <Label>User Prompt</Label>
-          <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-muted p-3 text-xs">
-            {data.userPrompt}
-          </pre>
-        </div>
+            <div>
+              <Label>System Prompt</Label>
+              <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
+                {data.systemPrompt}
+              </pre>
+            </div>
+            <div>
+              <Label>User Prompt</Label>
+              <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
+                {data.userPrompt}
+              </pre>
+            </div>
+          </>
+        ) : (
+          <PromptForm
+            initial={{
+              systemPrompt: data.systemPrompt,
+              userPrompt: data.userPrompt,
+              variables: data.variables,
+              modelAlias: data.modelAlias,
+              temperature: data.temperature,
+              maxTokens: data.maxTokens,
+              note: data.note,
+            }}
+            isNew={mode === 'new'}
+            taskKey={data.taskKey}
+            saving={update.isPending || createNew.isPending}
+            onSubmit={(values) => {
+              if (mode === 'edit') {
+                // 只送用户改过的字段
+                const dirty: Parameters<typeof aiApi.updatePrompt>[1] = {}
+                if (values.systemPrompt !== data.systemPrompt) dirty.systemPrompt = values.systemPrompt
+                if (values.userPrompt !== data.userPrompt) dirty.userPrompt = values.userPrompt
+                if (JSON.stringify(values.variables) !== JSON.stringify(data.variables)) {
+                  dirty.variables = values.variables
+                }
+                if ((values.modelAlias ?? null) !== data.modelAlias) dirty.modelAlias = values.modelAlias ?? ''
+                if (values.temperature !== data.temperature) dirty.temperature = values.temperature
+                if ((values.maxTokens ?? null) !== data.maxTokens)
+                  dirty.maxTokens = values.maxTokens ?? undefined
+                if ((values.note ?? null) !== data.note) dirty.note = values.note ?? ''
+                if (Object.keys(dirty).length === 0) {
+                  toast.info('没有改动')
+                  setMode('view')
+                  return
+                }
+                update.mutate(dirty)
+              } else {
+                // 新建版本：基于当前填的值 + 当前 taskKey
+                createNew.mutate({
+                  taskKey: data.taskKey,
+                  systemPrompt: values.systemPrompt,
+                  userPrompt: values.userPrompt,
+                  variables: values.variables,
+                  modelAlias: values.modelAlias || undefined,
+                  temperature: values.temperature,
+                  maxTokens: values.maxTokens ?? undefined,
+                  note: values.note || undefined,
+                })
+              }
+            }}
+          />
+        )}
 
         <div className="border-t border-border pt-4">
           <Label>试运行（传入变量 JSON）</Label>
@@ -726,7 +816,7 @@ function CostTab() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai', 'cost', start, end],
-    queryFn: () => aiApi.getCost({ startDate: `${start}T00:00:00`, endDate: `${end}T00:00:00` }),
+    queryFn: () => aiApi.getCost({ start_date: `${start}T00:00:00`, end_date: `${end}T00:00:00` }),
   })
 
   return (
@@ -823,6 +913,168 @@ function CostTab() {
         </>
       ) : null}
     </div>
+  )
+}
+
+function PromptForm({
+  initial,
+  isNew,
+  taskKey,
+  saving,
+  onSubmit,
+}: {
+  initial: {
+    systemPrompt: string
+    userPrompt: string
+    variables: string[]
+    modelAlias: string | null
+    temperature: number
+    maxTokens: number | null
+    note: string | null
+  }
+  isNew: boolean
+  taskKey: string
+  saving: boolean
+  onSubmit: (values: {
+    systemPrompt: string
+    userPrompt: string
+    variables: string[]
+    modelAlias: string | null
+    temperature: number
+    maxTokens: number | null
+    note: string | null
+  }) => void
+}) {
+  const [systemPrompt, setSystemPrompt] = useState(initial.systemPrompt)
+  const [userPrompt, setUserPrompt] = useState(initial.userPrompt)
+  const [varsText, setVarsText] = useState(initial.variables.join(', '))
+  const [modelAlias, setModelAlias] = useState(initial.modelAlias ?? '')
+  const [temperature, setTemperature] = useState(initial.temperature)
+  const [maxTokens, setMaxTokens] = useState(initial.maxTokens?.toString() ?? '')
+  const [note, setNote] = useState(initial.note ?? '')
+
+  // 切换 isNew 时重置
+  useEffect(() => {
+    setSystemPrompt(initial.systemPrompt)
+    setUserPrompt(initial.userPrompt)
+    setVarsText(initial.variables.join(', '))
+    setModelAlias(initial.modelAlias ?? '')
+    setTemperature(initial.temperature)
+    setMaxTokens(initial.maxTokens?.toString() ?? '')
+    setNote(initial.note ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew])
+
+  const parsedVars = varsText
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit({
+          systemPrompt,
+          userPrompt,
+          variables: parsedVars,
+          modelAlias: modelAlias.trim() || null,
+          temperature,
+          maxTokens: maxTokens ? Number(maxTokens) : null,
+          note: note.trim() || null,
+        })
+      }}
+      className="space-y-4"
+    >
+      <Alert variant="info">
+        {isNew
+          ? `创建新版本（taskKey = ${taskKey}，version 自动 +1，默认非激活）`
+          : '修改当前版本。已激活的版本不可编辑。'}
+      </Alert>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="modelAlias">模型别名</Label>
+          <Input
+            id="modelAlias"
+            value={modelAlias}
+            onChange={(e) => setModelAlias(e.target.value)}
+            placeholder="default-chat"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="temp">温度</Label>
+          <Input
+            id="temp"
+            type="number"
+            step="0.1"
+            min="0"
+            max="2"
+            value={temperature}
+            onChange={(e) => setTemperature(Number(e.target.value))}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="maxTokens">最大输出 tokens</Label>
+          <Input
+            id="maxTokens"
+            type="number"
+            value={maxTokens}
+            onChange={(e) => setMaxTokens(e.target.value)}
+            placeholder="留空 = 不限"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="vars">变量（英文逗号分隔）</Label>
+        <Input id="vars" value={varsText} onChange={(e) => setVarsText(e.target.value)} />
+        {parsedVars.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {parsedVars.map((v) => (
+              <code key={v} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                {v}
+              </code>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="system">System Prompt</Label>
+        <textarea
+          id="system"
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          rows={5}
+          required
+          className="w-full rounded-md border border-border bg-transparent p-2 font-mono text-xs"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="user">User Prompt</Label>
+        <textarea
+          id="user"
+          value={userPrompt}
+          onChange={(e) => setUserPrompt(e.target.value)}
+          rows={10}
+          required
+          className="w-full rounded-md border border-border bg-transparent p-2 font-mono text-xs"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="note">备注</Label>
+        <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button type="submit" loading={saving} disabled={!systemPrompt || !userPrompt}>
+          {isNew ? '创建新版本' : '保存修改'}
+        </Button>
+      </div>
+    </form>
   )
 }
 

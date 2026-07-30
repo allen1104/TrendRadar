@@ -27,12 +27,16 @@ celery_app.conf.update(
 # 模块任务在此注册（随模块开发逐步放开）
 celery_app.autodiscover_tasks(
     [
-        # "app.modules.source",
+        "app.modules.auth",
+        "app.modules.ai",
+        "app.modules.source",
         # "app.modules.pipeline",
-        # "app.modules.ai",
         # "app.modules.admin",
     ]
 )
 
 # 静态调度；动态调度（每个采集源的 cron）由 Beat 从数据库加载
-celery_app.conf.beat_schedule = {}
+celery_app.conf.beat_schedule = {
+    # 每分钟检查一次新的 enabled source，按各自 cron 触发
+    # （动态加载 Beat 实现见 SPEC，本期先做静态）
+}

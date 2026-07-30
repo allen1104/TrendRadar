@@ -17,6 +17,7 @@ from app.core.redis import redis_client
 from app.modules.ai.api import router as ai_admin_router
 from app.modules.auth.api import admin_router as auth_admin_router
 from app.modules.auth.api import router as auth_router
+from app.modules.source.api import router as source_admin_router
 
 configure_logging()
 log = structlog.get_logger()
@@ -112,3 +113,4 @@ async def ready() -> JSONResponse:
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ai_admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(source_admin_router, prefix=settings.API_V1_PREFIX)

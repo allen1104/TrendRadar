@@ -119,6 +119,11 @@ export const aiApi = {
     http.get<AIPromptDetail>(`/admin/ai/prompts/${id}`).then(r => r.data),
   createPrompt: (data: PromptCreatePayload): Promise<AIPromptDetail> =>
     http.post<AIPromptDetail>('/admin/ai/prompts', data).then(r => r.data),
+  updatePrompt: (
+    id: number,
+    data: Partial<Omit<PromptCreatePayload, 'taskKey'>>,
+  ): Promise<AIPromptDetail> =>
+    http.patch<AIPromptDetail>(`/admin/ai/prompts/${id}`, data).then(r => r.data),
   activatePrompt: (id: number): Promise<AIPromptDetail> =>
     http.post<AIPromptDetail>(`/admin/ai/prompts/${id}/activate`).then(r => r.data),
   dryRunPrompt: (
@@ -127,7 +132,7 @@ export const aiApi = {
   ): Promise<DryRunResult> =>
     http.post<DryRunResult>(`/admin/ai/prompts/${id}/dry-run`, data).then(r => r.data),
 
-  getCost: (params: { startDate: string; endDate: string; groupBy?: 'DAY' | 'WEEK' | 'MONTH' }): Promise<CostStats> =>
+  getCost: (params: { start_date: string; end_date: string; group_by?: 'DAY' | 'WEEK' | 'MONTH' }): Promise<CostStats> =>
     http.get<CostStats>('/admin/ai/cost', { params }).then(r => r.data),
 
   listLogs: (params: {

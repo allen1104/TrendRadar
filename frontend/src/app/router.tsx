@@ -4,6 +4,7 @@ import { AuthLayout } from '@/app/AuthLayout'
 import { RootLayout } from '@/app/RootLayout'
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage'
 import { AiConfigPage } from '@/features/admin/pages/AiConfigPage'
+import { SourceManagementPage } from '@/features/admin/pages/SourceManagementPage'
 import { RedirectIfAuthenticated, RequireRole } from '@/features/auth/components/RequireRole'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ProfilePage } from '@/features/auth/pages/ProfilePage'
@@ -75,6 +76,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole minRole="ADMIN">
             <AdminUsersPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'admin/sources',
+        element: (
+          <RequireRole minRole="ADMIN">
+            <SourceManagementPage />
           </RequireRole>
         ),
       },
