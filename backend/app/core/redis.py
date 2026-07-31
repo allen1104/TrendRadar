@@ -34,3 +34,15 @@ class RedisKey:
     @staticmethod
     def rate_limit(scope: str, identity: str) -> str:
         return f"ratelimit:{scope}:{identity}"
+
+    @staticmethod
+    def pipeline_dedup_lock() -> str:
+        return "pipeline:dedupe:lock"
+
+    @staticmethod
+    def hotspot_rank(scope: str, category: str, sort: str, page: int) -> str:
+        return f"hotspot:rank:{scope}:{category}:{sort}:{page}"
+
+    @staticmethod
+    def hotspot_event(event_id: int) -> str:
+        return f"hotspot:event:{event_id}"

@@ -9,6 +9,8 @@ import { RedirectIfAuthenticated, RequireRole } from '@/features/auth/components
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { EventDetailPage } from '@/features/hotspot/pages/EventDetailPage'
+import { HotspotPage } from '@/features/hotspot/pages/HotspotPage'
 
 function Placeholder({ title, module }: { title: string; module: string }) {
   return (
@@ -51,8 +53,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <Placeholder title="热点中心" module="hotspot" /> },
-      { path: 'events/:id', element: <Placeholder title="热点详情" module="hotspot" /> },
+      { index: true, element: <HotspotPage /> },
+      { path: 'events/:id', element: <EventDetailPage /> },
       { path: 'trends', element: <Placeholder title="趋势分析" module="trend" /> },
       { path: 'reports', element: <Placeholder title="日报中心" module="report" /> },
       {
@@ -92,14 +94,6 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole minRole="ADMIN">
             <AiConfigPage />
-          </RequireRole>
-        ),
-      },
-      {
-        path: 'admin/sources',
-        element: (
-          <RequireRole minRole="ADMIN">
-            <Placeholder title="采集源管理" module="source" />
           </RequireRole>
         ),
       },

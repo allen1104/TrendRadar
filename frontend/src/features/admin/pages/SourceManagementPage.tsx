@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -346,19 +346,38 @@ function SourceEditor({
     enabled: false,
   })
 
-  // 编辑时拉详情填充
-  if (editingId && detail && form.name === '' && form.pluginKey === '') {
-    setForm({
-      pluginKey: detail.pluginKey,
-      name: detail.name,
-      region: detail.region,
-      category: detail.category,
-      homeUrl: detail.homeUrl ?? '',
-      cron: detail.cron,
-      weight: detail.weight,
-      enabled: detail.enabled,
-    })
-  }
+  // 打开编辑时：先清空 form，等详情拉回来再填充。
+  // 之前用 if-conditional + setForm 只在第一次生效，切换到别的记录时残留了上一次的 form 数据。
+  useEffect(() => {
+    if (open && editingId !== null && detail) {
+      setForm({
+        pluginKey: detail.pluginKey,
+        name: detail.name,
+        region: detail.region,
+        category: detail.category,
+        homeUrl: detail.homeUrl ?? '',
+        cron: detail.cron,
+        weight: detail.weight,
+        enabled: detail.enabled,
+      })
+    }
+  }, [editingId, detail, open])
+
+  // 关闭 / 切到「新建」时清空 form
+  useEffect(() => {
+    if (!open || editingId === null) {
+      setForm({
+        pluginKey: '',
+        name: '',
+        region: 'GLOBAL',
+        category: 'NEWS',
+        homeUrl: '',
+        cron: '',
+        weight: 5,
+        enabled: false,
+      })
+    }
+  }, [open, editingId])
 
   const create = useMutation({
     mutationFn: sourceApi.create,

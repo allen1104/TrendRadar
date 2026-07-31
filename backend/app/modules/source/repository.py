@@ -71,6 +71,15 @@ class SourceRunLogRepository:
         await self.session.flush()
         return row
 
+    async def update(self, run_log_id: int, **fields: Any) -> SourceRunLog | None:
+        row = await self.get(run_log_id)
+        if row is None:
+            return None
+        for k, v in fields.items():
+            setattr(row, k, v)
+        await self.session.flush()
+        return row
+
     async def get(self, run_log_id: int) -> SourceRunLog | None:
         return await self.session.get(SourceRunLog, run_log_id)
 

@@ -18,6 +18,7 @@ class LLMRequest(BaseModel):
     response_schema: type[BaseModel] | None = None
     timeout: int = 120
     extra: dict[str, Any] = Field(default_factory=dict)
+    supports_json_schema: bool = True  # 模型是否原生支持结构化输出（OpenAI-style json_schema）
 
 
 class LLMResponse(BaseModel):

@@ -71,19 +71,82 @@ class EventAnalysisService:
             model_alias=(prompt_row.model_alias or "default-chat"),
             prompt_version=prompt_row.version,
         )
+
+        # 回写 event 表：status=ANALYZED + AI 评分 + categories（跳过 manual_locked_fields）
+        await self._writeback_to_event(event_id, result_obj)
+
         log.info("ai.event_analysis.done", event_id=event_id, value=result_obj.value_score)
         return EventAnalysisResultView.from_model(saved)
 
-    async def _load_event(self, event_id: int) -> dict | None:
-        """pipeline 模块尚未实现，placeholder：返回空 context 让 prompt 自己处理。
+    async def _writeback_to_event(self, event_id: int, result: "EventAnalysisResult") -> None:
+        """把 AI 分数 / 分类 / 一句话总结回写到 event 表，跳过被人工锁定的字段。"""
+        from app.modules.pipeline.enums import EventStatus
+        from app.modules.pipeline.model import Event as EventModel
 
-        pipeline 实现后：读 event + article + event_article 拼成上下文。
-        """
-        # 真实实现需要 pipeline 模块就绪
+        ev = await self.session.get(EventModel, event_id)
+        if ev is None or ev.is_deleted:
+            return
+        locked = set(ev.manual_locked_fields or [])
+        ev.status = EventStatus.ANALYZED.value
+        if "valueScore" not in locked and "value_score" not in locked:
+            ev.value_score = result.value_score
+        if "originalityScore" not in locked and "originality_score" not in locked:
+            ev.originality_score = result.originality_score
+        if "trendScore" not in locked and "trend_score" not in locked:
+            ev.trend_score = result.trend_score
+        if "categories" not in locked and result.categories:
+            ev.categories = result.categories
+        if "summaryOneLine" not in locked and "summary_one_line" not in locked and result.summary_one_line:
+            ev.summary_one_line = result.summary_one_line[:300]
+        await self.session.commit()
+
+    async def _load_event(self, event_id: int) -> dict | None:
+        """从 pipeline 模块的 event / article / event_article 表拼上下文。"""
+        from app.modules.pipeline.model import Article, Event, EventArticle
+
+        ev = await self.session.get(Event, event_id)
+        if ev is None or ev.is_deleted:
+            return None
+
+        # 关联的所有 article（按 primary 优先，再按 published_at 升序）
+        from sqlalchemy import select
+
+        rows = (
+            await self.session.execute(
+                select(Article, EventArticle)
+                .join(EventArticle, EventArticle.article_id == Article.id)
+                .where(
+                    EventArticle.event_id == event_id,
+                    EventArticle.is_deleted.is_(False),
+                    Article.is_deleted.is_(False),
+                )
+                .order_by(EventArticle.is_primary.desc(), Article.published_at.asc())
+                .limit(8)
+            )
+        ).all()
+
+        articles_ctx: list[dict] = []
+        for art, ea in rows:
+            content = (art.content or "")[:1500]
+            articles_ctx.append(
+                {
+                    "id": art.id,
+                    "title": art.title,
+                    "url": art.url,
+                    "source_name": "",  # 简化版：不查 source 表
+                    "lang": art.lang,
+                    "published_at": art.published_at.isoformat() if art.published_at else "",
+                    "summary": (art.summary or "")[:400],
+                    "content": content,
+                    "is_primary": bool(ea.is_primary),
+                    "match_level": ea.match_level,
+                }
+            )
+
         return {
-            "title": f"event-{event_id}",
-            "summary": "",
-            "articles": [],
+            "title": ev.title,
+            "summary": ev.summary_one_line or "",
+            "articles": articles_ctx,
         }
 
 

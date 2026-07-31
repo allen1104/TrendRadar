@@ -17,6 +17,10 @@ from app.core.redis import redis_client
 from app.modules.ai.api import router as ai_admin_router
 from app.modules.auth.api import admin_router as auth_admin_router
 from app.modules.auth.api import router as auth_router
+from app.modules.hotspot.api import router as hotspot_router
+from app.modules.hotspot.api import tags_router as hotspot_tags_router
+from app.modules.pipeline.api import events_router as pipeline_events_router
+from app.modules.pipeline.api import router as pipeline_admin_router
 from app.modules.source.api import router as source_admin_router
 
 configure_logging()
@@ -114,3 +118,7 @@ app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ai_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(source_admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(pipeline_admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(pipeline_events_router, prefix=settings.API_V1_PREFIX)
+app.include_router(hotspot_router, prefix=settings.API_V1_PREFIX)
+app.include_router(hotspot_tags_router, prefix=settings.API_V1_PREFIX)

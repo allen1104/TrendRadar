@@ -10,19 +10,18 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 **AI**       统一 LLM 网关，多 Provider 可配置（OpenAI 兼容 / Anthropic / Gemini）· 本地 bge-m3 embedding
 **Deploy**   Docker Compose
 
-## ⚡ 当前模块：source
+## ⚡ 当前模块：hotspot
 
-（每次开始新模块时更新这一行，例如：⚡ 当前模块：热点中心 hotspot）
+（每次开始新模块时更新这一行，例如：⚡ 当前模块：管理后台 admin）
 
 ## 模块列表与状态
 
 一期（MVP）：
 - [x] auth — 认证与权限
-- [ ] source — 采集源与插件
 - [x] ai-engine — LLM 统一网关 · [Prompt 索引](backend/app/modules/ai/PROMPTS.md)
-- [x] source — 采集源与插件 · [Module README](backend/app/modules/source/README.md) · [Prompt 索引](backend/app/modules/ai/PROMPTS.md)
-- [ ] pipeline — 清洗与去重聚合
-- [ ] hotspot — 热点中心
+- [x] source — 采集源与插件 · [Module README](backend/app/modules/source/README.md)
+- [x] pipeline — 清洗与去重聚合 · [Module README](backend/app/modules/pipeline/README.md)
+- [x] hotspot — 热点中心 · [Module README](backend/app/modules/hotspot/README.md)
 - [ ] admin — 管理后台
 
 二期：
@@ -149,3 +148,23 @@ frontend/src/
 7. 更新本文件的模块状态与 `.claude/progress/PROGRESS.md`
 
 **不要一次生成整个项目。一次只做一个模块。**
+
+---
+
+## 维护规范（每次任务结束必做，不等用户提醒）
+
+完成任意子任务（A/B/C…/全模块/修 bug/加字段）后，**在回消息之前先改这三处**：
+
+1. **`CLAUDE.md`（本文件）**：
+   - 顶部「⚡ 当前模块」改为当前正在做的模块
+   - 「模块列表与状态」表：完成模块从 `[ ]` 改 `[x]`，补一行链接到该模块的 README
+2. **`.claude/progress/PROGRESS.md`**：
+   - 「阶段」勾选对应阶段
+   - 「模块完成度」表格里 model/迁移/repo/service/api/前端/测试 各列 ⬜ 改 ✅
+   - 「当前工作」段更新为下一阶段（写下"下一步：xx"）
+3. **`backend/app/modules/{module}/README.md`** 或 `frontend/...`：
+   - 每完成一个子阶段，末尾「验证状态」表追加一行（实测 SQL 输出 / API 响应 / 单测结果）
+4. **`doc/SPEC-{module}.md`** 顶部「模块状态」字段从 `⏳ 未开始` / `🔄 开发中` 改成 `✅ 已完成`，最后更新日期同步
+
+> 这条规则不需要用户再说一遍，写到这里的瞬间就在上下文里一直生效。
+> **写完代码没改文档 = 任务未完成。**

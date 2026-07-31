@@ -266,21 +266,39 @@ class SourceService:
         new: int,
         duration_ms: int,
         error: str | None,
+        run_log_id: int | None = None,
     ) -> int:
-        """写一条 source_run_log + 更新 source 的 last_run_* 与 consecutive_fails。"""
-        row = await self.log_repo.create(
-            source_id=source_id,
-            trigger_type=trigger_type.value,
-            triggered_by=triggered_by,
-            status=run_status.value,
-            fetched_count=fetched,
-            new_count=new,
-            duration_ms=duration_ms,
-            error_message=error,
-            started_at=utcnow().replace(tzinfo=None),
-            finished_at=utcnow().replace(tzinfo=None),
-        )
-        await self.session.flush()
+        """写/更新一条 source_run_log，更新 source 的 last_run_* 与 consecutive_fails。
+
+        传 run_log_id 则更新同一条记录（保留 started_at + RUNNING 状态），
+        不传则新建。一次 fetch 只该产生一条日志。
+        """
+        if run_log_id is None:
+            now_naive = utcnow().replace(tzinfo=None)
+            row = await self.log_repo.create(
+                source_id=source_id,
+                trigger_type=trigger_type.value,
+                triggered_by=triggered_by,
+                status=run_status.value,
+                fetched_count=fetched,
+                new_count=new,
+                duration_ms=duration_ms,
+                error_message=error,
+                started_at=now_naive,
+                finished_at=now_naive if run_status != RunStatus.RUNNING else None,
+            )
+            log_id = row.id
+        else:
+            updated = await self.log_repo.update(
+                run_log_id,
+                status=run_status.value,
+                fetched_count=fetched,
+                new_count=new,
+                duration_ms=duration_ms,
+                error_message=error,
+                finished_at=utcnow().replace(tzinfo=None),
+            )
+            log_id = updated.id if updated else run_log_id
 
         source = await self.repo.get(source_id)
         if source is not None:
@@ -301,7 +319,7 @@ class SourceService:
                 source.consecutive_fails = 0
             await self.repo.save(source)
         await self.session.commit()
-        return row.id
+        return log_id
 
     async def list_logs(
         self,

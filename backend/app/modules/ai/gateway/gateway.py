@@ -39,6 +39,7 @@ from app.modules.ai.gateway.base import get_provider_class
 from app.modules.ai.gateway.types import LLMRequest, LLMResponse
 from app.modules.ai.model import AICallLog, AIModel, AIProvider, PromptTemplate
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 log = structlog.get_logger()
 
@@ -155,6 +156,7 @@ class LLMGateway:
             temperature=temperature,
             max_tokens=max_tokens,
             response_schema=response_schema,
+            supports_json_schema=bool(model.supports_json_schema),
         )
 
         # 指数退避重试 3 次（2s/6s/18s）
@@ -174,7 +176,7 @@ class LLMGateway:
         except RetryError as exc:
             raise exc.last_attempt.exception() if exc.last_attempt else exc  # type: ignore[misc]
 
-        cost = model.price_input_per_1m * resp.prompt_tokens / 1e6 + model.price_output_per_1m * resp.completion_tokens / 1e6
+        cost = float(model.price_input_per_1m or 0) * resp.prompt_tokens / 1e6 + float(model.price_output_per_1m or 0) * resp.completion_tokens / 1e6
         await self._log_call(
             model_alias=model.alias,
             task_key=task_key,
@@ -233,8 +235,11 @@ class LLMGateway:
         return [primary]
 
     async def _get_model_by_alias(self, alias: str) -> AIModel:
+        # eager load provider — 否则 _build_provider 同步访问 model.provider 时
+        # 触发 lazy load，在 Celery 异步上下文里报 greenlet_spawn。
         result = await self.session.execute(
             select(AIModel)
+            .options(selectinload(AIModel.provider))
             .where(
                 AIModel.is_deleted.is_(False),
                 AIModel.enabled.is_(True),

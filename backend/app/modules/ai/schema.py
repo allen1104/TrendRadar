@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 
 from app.core.schema import CamelModel
 from app.modules.ai.enums import (
@@ -251,15 +251,24 @@ class EventAnalysisResult(CamelModel):
     key_points: list[str] = Field(min_length=3, max_length=5)
     innovations: list[str] = Field(max_length=5, default_factory=list)
     audience: list[str]
-    categories: list[str] = Field(min_length=1, max_length=4)
+    categories: list[str] = Field(default_factory=list, max_length=4)
     tags: list[dict] = Field(max_length=8, default_factory=list)
     value_score: int = Field(ge=0, le=100)
     originality_score: int = Field(ge=0, le=100)
     trend_score: int = Field(ge=0, le=100)
     worth_article: bool
-    worth_article_why: str = Field(max_length=500)
+    # 模型常把 reason/why 混用或省略；选填，UI 兜底默认文案
+    worth_article_why: str | None = Field(
+        default=None,
+        max_length=500,
+        validation_alias=AliasChoices("worth_article_why", "worth_article_reason"),
+    )
     worth_research: bool
-    worth_research_why: str = Field(max_length=500)
+    worth_research_why: str | None = Field(
+        default=None,
+        max_length=500,
+        validation_alias=AliasChoices("worth_research_why", "worth_research_reason"),
+    )
 
 
 class EventAnalysisRequest(CamelModel):

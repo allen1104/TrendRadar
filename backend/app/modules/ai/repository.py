@@ -174,4 +174,5 @@ class EventAnalysisRepository:
             existing.analyzed_at = datetime.utcnow()
             row = existing
         await self.session.flush()
+        await self.session.commit()
         return row

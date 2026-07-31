@@ -4,6 +4,7 @@
 任意外部配置 base_url + api_key 都走这个实现。
 """
 
+import re
 import time
 
 import httpx
@@ -16,6 +17,28 @@ from app.modules.ai.gateway.base import LLMProvider, register_provider
 from app.modules.ai.gateway.types import LLMRequest, LLMResponse
 
 log = structlog.get_logger()
+
+_CAMEL_KEY_RE = re.compile(r'"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:')
+
+
+def _normalize_camel_to_snake(text: str) -> str:
+    """把 JSON 文本里所有 `"camelCase":` 键替换成 `"snake_case":`。
+
+    模型经常把 snake_case 字段写成 camelCase（DeepSeek / Qwen 常见）。
+    只动键名（引号后到冒号前），不动值。
+    """
+    if not text or "{" not in text:
+        return text
+
+    def _key(m: re.Match[str]) -> str:
+        k = m.group(1)
+        if "_" in k:
+            return m.group(0)
+        s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", k)
+        s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1)
+        return f'"{s2}":'
+
+    return _CAMEL_KEY_RE.sub(_key, text)
 
 
 @register_provider
@@ -46,8 +69,9 @@ class OpenAICompatibleProvider(LLMProvider):
         if request.max_tokens is not None:
             kwargs["max_tokens"] = request.max_tokens
 
-        # 结构化输出优先用 response_format（OpenAI JSON schema）
-        if request.response_schema is not None:
+        # 结构化输出：仅当模型声明支持 OpenAI-style json_schema 时才发 response_format
+        # （DeepSeek / 多数 OpenAI 兼容端点不接 json_schema 严格模式，强行发会 400）
+        if request.response_schema is not None and request.supports_json_schema:
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -56,8 +80,6 @@ class OpenAICompatibleProvider(LLMProvider):
                     "strict": True,
                 },
             }
-        elif "json" in (request.extra.get("force_json") or ""):
-            kwargs["response_format"] = {"type": "json_object"}
 
         resp = await self._client.chat.completions.create(**kwargs)
         latency_ms = int((time.perf_counter() - start) * 1000)
@@ -66,11 +88,15 @@ class OpenAICompatibleProvider(LLMProvider):
 
         parsed = None
         if request.response_schema is not None:
+            # 模型经常把 snake_case 字段名写成 camelCase（DeepSeek / Qwen 都常见），
+            # 在 parse 前归一化一次。schema 是 Pydantic BaseModel，按字段名再映射回 snake。
+            content = _normalize_camel_to_snake(content)
             try:
                 parsed = request.response_schema.model_validate_json(content)
             except ValidationError as exc:
                 raise ValueError(
-                    f"LLM output failed schema validation: {exc.error_count()} errors"
+                    f"LLM output failed schema validation: {exc.error_count()} errors | "
+                    f"content[:300]={content[:300]!r} | errors={exc.errors()[:3]}"
                 ) from exc
 
         usage = resp.usage
