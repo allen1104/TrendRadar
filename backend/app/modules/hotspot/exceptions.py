@@ -1,0 +1,35 @@
+"""hotspot 模块业务异常。"""
+
+from __future__ import annotations
+
+from app.core.exceptions import AppException
+
+
+class EventNotFoundError(AppException):
+    status_code = 404
+    error_code = "EVENT_NOT_FOUND"
+    detail = "事件不存在"
+
+
+class InvalidSortFieldError(AppException):
+    status_code = 400
+    error_code = "INVALID_SORT_FIELD"
+    detail = "排序字段不在白名单内"
+
+
+class KeywordTooShortError(AppException):
+    status_code = 400
+    error_code = "KEYWORD_TOO_SHORT"
+    detail = "搜索关键词至少 2 个字符"
+
+
+class PinAndHideConflictError(AppException):
+    status_code = 400
+    error_code = "PIN_AND_HIDE_CONFLICT"
+    detail = "不能同时置顶与隐藏"
+
+
+class ManualLockFieldNotFoundError(AppException):
+    status_code = 404
+    error_code = "MANUAL_LOCK_FIELD_NOT_FOUND"
+    detail = "该字段未被人工锁定"
