@@ -14,18 +14,19 @@
 - [x] 阶段 7 · admin 管理后台
 - [x] 阶段 8 · 一期联调与验收（27/27 冒烟全过，详见 doc/ACCEPTANCE.md）
 - [x] 阶段 9 · 二期首模块 collection（40 单测 + typecheck/build 通过）
-- [ ] 阶段 10 · 后续二期模块（trend / assistant / creation / report）
+- [x] 阶段 10 · trend 趋势分析（51 单测 + 全栈 372 测试无回归 + typecheck/build 通过）
+- [ ] 阶段 11 · 后续二期模块（assistant / creation / report）
 
 ## 当前工作
 
-阶段 9 collection 模块完成：2 张表 + 11 个 API + 13 个 service 方法，hotspot 集成 `isCollected` 真实值（全栈 301 测试无回归），前端 MVP（⭐ 按钮 + /collections 页面 + 编辑弹窗 + 批量操作）通过 typecheck 与 build。
+阶段 10 trend 模块完成：3 张表（event_daily_snapshot / keyword_trend / entity_trend）+ 5 个 API（关键词趋势 / 实体趋势 / 词云 / 总览 / 关键词下钻）+ aggregate_task + cleanup_task；增长率算法（3 日平滑 + 5x 截断 + emerging 标记）+ 关键词归一化 + 停用词过滤；frontend MVP（4 屏 + 下钻 + ECharts 折线/玫瑰/词云/雷达）通过 typecheck 与 build。
 
 下一步：
-1. 后续二期模块按 SPEC 顺序：trend → assistant → creation → report
-2. 文档补完（hotspot+collection 跨模块联动写进 doc/ACCEPTANCE.md）
-3. 端到端冒烟补 collection 段（需要实跑的 Docker 环境）
+1. 后续二期模块按 SPEC 顺序：assistant → creation → report
+2. 文档补完（hotspot+collection+trend 跨模块联动写进 doc/ACCEPTANCE.md）
+3. 端到端冒烟补 trend 段（需要实跑的 Docker 环境 + aggregate_task 跑过夜）
 
-## 测试覆盖：301 passed
+## 测试覆盖：372 passed
 
 ## 模块完成度
 
@@ -38,7 +39,7 @@
 | hotspot    | ✅    | —     | —    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | admin      | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | collection | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
-| trend      | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
+| trend      | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | assistant  | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | creation   | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | report     | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
@@ -63,3 +64,7 @@
 | 2026-08-01 | 登录用户跳过 hotspot cache | `is_collected` 是 per-user 状态，混合缓存会泄漏 A 给 B |
 | 2026-08-01 | collection API 用 Query(alias) + 字符串自己 split 逗号分隔 | FastAPI `list[int]` Query 不解析逗号分隔，前端要重发 4 次；改手工 split 后 `/event-ids?eventIds=1,2,3,4` 一发搞定 |
 | 2026-08-01 | `event_ids` API 返回 `set[int]` 而非 Pydantic DTO | service 内部统一 `set`（去重 + O(1) `in` 查询）；前端 API 层再自己包 `CollectedEventIdsResponse` |
+| 2026-08-02 | trend repository 按 dialect 分支（PG upsert / SQLite select-then-update） | `session.get_bind().dialect.name` 判别；单测用 SQLite 与生产 PG 行为一致 |
+| 2026-08-02 | trend.api 用 `Annotated[str, Query()]` 接 enum 字符串而非原生 enum | FastAPI 原生 enum Query 失败返回 422 而非 SPEC 要求的 400；字符串 + service 校验抛 AppException 转 400 |
+| 2026-08-02 | aggregate_task 跨模块 inline-import pipeline.model / ai.model | 避免顶层循环依赖；aggregate 任务只在 02:00 跑一次，开销可接受 |
+| 2026-08-02 | Celery tasks 用 `asyncio.run(_run())` + `engine.dispose()` 模式 | 与 pipeline/admin 一致；Celery solo 跨多次 asyncio.run 共享连接池会失效 |

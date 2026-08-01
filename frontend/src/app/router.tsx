@@ -16,6 +16,8 @@ import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { CollectionPage } from '@/features/collection/pages/CollectionPage'
 import { EventDetailPage } from '@/features/hotspot/pages/EventDetailPage'
 import { HotspotPage } from '@/features/hotspot/pages/HotspotPage'
+import { KeywordDetailPage } from '@/features/trend/pages/KeywordDetailPage'
+import { TrendPage } from '@/features/trend/pages/TrendPage'
 
 function Placeholder({ title, module }: { title: string; module: string }) {
   return (
@@ -92,7 +94,8 @@ export const router = createBrowserRouter([
           </RequireRole>
         ),
       },
-      { path: 'trends', element: <Placeholder title="趋势分析" module="trend" /> },
+      { path: 'trends', element: <TrendPage /> },
+      { path: 'trends/:keyword', element: <KeywordDetailPage /> },
       { path: 'reports', element: <Placeholder title="日报中心" module="report" /> },
       {
         path: 'collections',

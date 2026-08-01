@@ -15,6 +15,7 @@ from app.modules.auth import model as _auth_model  # noqa: F401
 from app.modules.collection import model as _collection_model  # noqa: F401
 from app.modules.pipeline import model as _pipeline_model  # noqa: F401
 from app.modules.source import model as _source_model  # noqa: F401
+from app.modules.trend import model as _trend_model  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

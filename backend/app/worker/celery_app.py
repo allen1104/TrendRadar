@@ -35,6 +35,7 @@ celery_app.autodiscover_tasks(
         "app.modules.ai",
         "app.modules.source",
         "app.modules.pipeline",
+        "app.modules.trend",
     ]
 )
 
@@ -105,5 +106,15 @@ celery_app.conf.beat_schedule = {
     "admin-cleanup": {
         "task": "admin.cleanup",
         "schedule": crontab(minute="0", hour="3"),
+    },
+    # trend 聚合：每日 02:00 计算前一天的 keyword_trend / entity_trend / 事件快照
+    "trend-aggregate-daily": {
+        "task": "trend.aggregate",
+        "schedule": crontab(minute="0", hour="2"),
+    },
+    # trend 历史清理：每日 04:00 物理删 400 天前的 trend 数据
+    "trend-cleanup-old": {
+        "task": "trend.cleanup",
+        "schedule": crontab(minute="0", hour="4"),
     },
 }

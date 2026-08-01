@@ -17,6 +17,7 @@ class ConfigGroup(StrEnum):
     SCHEDULE = "SCHEDULE"
     SEARCH = "SEARCH"
     GENERAL = "GENERAL"
+    TREND = "TREND"
 
 
 class ValueType(StrEnum):

@@ -14,8 +14,10 @@ from app.modules.admin.enums import (
 
 
 class TestConfigGroup:
-    def test_exact_six(self) -> None:
-        assert {g.value for g in ConfigGroup} == {"DEDUPE", "RANK", "AI", "SCHEDULE", "SEARCH", "GENERAL"}
+    def test_group_set(self) -> None:
+        assert {g.value for g in ConfigGroup} == {
+            "DEDUPE", "RANK", "AI", "SCHEDULE", "SEARCH", "GENERAL", "TREND",
+        }
 
 
 class TestValueType:

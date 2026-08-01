@@ -273,6 +273,36 @@ async def seed_system_configs() -> None:
             "max_value": 10,
             "requires_rerun": False,
         },
+        # group: TREND（trend 模块）
+        {
+            "config_key": "keyword_aliases",
+            "config_value": {"大语言模型": "llm", "大模型": "llm", "AI 助手": "ai-assistant"},
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.TREND.value,
+            "display_name": "关键词同义词映射",
+            "description": "{别名: 归一化词}，聚合时把别名映射到归一化词",
+            "requires_rerun": True,
+        },
+        {
+            "config_key": "keyword_stopwords",
+            "config_value": ["ai", "技术", "模型", "the", "a", "an"],
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.TREND.value,
+            "display_name": "关键词停用词",
+            "description": "停用词不进排行（去掉过泛词噪声）",
+            "requires_rerun": True,
+        },
+        {
+            "config_key": "trend_min_event_count",
+            "config_value": 3,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.TREND.value,
+            "display_name": "趋势最低事件数",
+            "description": "关联事件数低于此值的关键词不进排行榜",
+            "min_value": 1,
+            "max_value": 100,
+            "requires_rerun": False,
+        },
     ]
 
     async with AsyncSessionLocal() as session:
