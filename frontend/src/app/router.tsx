@@ -2,6 +2,10 @@ import { createBrowserRouter } from 'react-router-dom'
 
 import { AuthLayout } from '@/app/AuthLayout'
 import { RootLayout } from '@/app/RootLayout'
+import { AdminAuditPage } from '@/features/admin/pages/AdminAuditPage'
+import { AdminConfigsPage } from '@/features/admin/pages/AdminConfigsPage'
+import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage'
+import { AdminTasksPage } from '@/features/admin/pages/AdminTasksPage'
 import { AdminUsersPage } from '@/features/admin/pages/AdminUsersPage'
 import { AiConfigPage } from '@/features/admin/pages/AiConfigPage'
 import { SourceManagementPage } from '@/features/admin/pages/SourceManagementPage'
@@ -55,6 +59,38 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HotspotPage /> },
       { path: 'events/:id', element: <EventDetailPage /> },
+      {
+        path: 'admin',
+        element: (
+          <RequireRole minRole="EDITOR">
+            <AdminDashboardPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'admin/config',
+        element: (
+          <RequireRole minRole="ADMIN">
+            <AdminConfigsPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'admin/tasks',
+        element: (
+          <RequireRole minRole="EDITOR">
+            <AdminTasksPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'admin/audit',
+        element: (
+          <RequireRole minRole="ADMIN">
+            <AdminAuditPage />
+          </RequireRole>
+        ),
+      },
       { path: 'trends', element: <Placeholder title="趋势分析" module="trend" /> },
       { path: 'reports', element: <Placeholder title="日报中心" module="report" /> },
       {

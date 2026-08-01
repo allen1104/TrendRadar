@@ -1,5 +1,6 @@
 """异步数据库会话管理。"""
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -22,6 +23,20 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
 )
+
+# Celery worker 主 event loop（在 worker_process_init 时绑定）
+_WORKER_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def set_worker_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Celery worker_process_init 信号调用一次。"""
+    global _WORKER_LOOP
+    _WORKER_LOOP = loop
+
+
+def get_worker_loop() -> asyncio.AbstractEventLoop | None:
+    """返回 worker 的事件循环（admin/decorator 用于跑 coroutine）。"""
+    return _WORKER_LOOP
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

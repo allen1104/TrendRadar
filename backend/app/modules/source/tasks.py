@@ -9,6 +9,7 @@ import structlog
 
 from app.core.logging import configure_logging
 from app.db.session import AsyncSessionLocal
+from app.modules.admin.decorator import tracked_task
 from app.modules.source.enums import RunStatus, TriggerType
 from app.modules.source.plugins import (
     RawItem,
@@ -36,6 +37,7 @@ def _run(coro):  # type: ignore[no-untyped-def]
             pass
 
 
+@tracked_task(manual_triggerable=True, display_name="单源采集")
 @celery_app.task(name="source.fetch", bind=True, max_retries=2, default_retry_delay=60)
 def fetch_task(self, source_id: int, trigger_type: str = "SCHEDULED", triggered_by: int | None = None):
     """单源采集任务。Celery worker 内运行。
@@ -190,6 +192,7 @@ def _cron_should_fire_now(cron: str, now) -> bool:
         return False
 
 
+@tracked_task(manual_triggerable=False, display_name="采集源调度扫描")
 @celery_app.task(name="source.schedule", bind=True)
 def schedule_sources_task(self) -> dict[str, int]:
     """每分钟由 Beat 触发。扫一遍 enabled source，按各自 cron 判定是否该跑。

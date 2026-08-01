@@ -10,7 +10,7 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 **AI**       统一 LLM 网关，多 Provider 可配置（OpenAI 兼容 / Anthropic / Gemini）· 本地 bge-m3 embedding
 **Deploy**   Docker Compose
 
-## ⚡ 当前模块：hotspot
+## ⚡ 当前模块：admin → 二期 collection
 
 （每次开始新模块时更新这一行，例如：⚡ 当前模块：管理后台 admin）
 
@@ -22,7 +22,8 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 - [x] source — 采集源与插件 · [Module README](backend/app/modules/source/README.md)
 - [x] pipeline — 清洗与去重聚合 · [Module README](backend/app/modules/pipeline/README.md)
 - [x] hotspot — 热点中心 · [Module README](backend/app/modules/hotspot/README.md)
-- [ ] admin — 管理后台
+- [x] admin — 管理后台 · [Module README](backend/app/modules/admin/README.md)
+- [x] 一期联调验收 — 9/10 项通过，27/27 冒烟全过 · [验收报告](doc/ACCEPTANCE.md)
 
 二期：
 - [ ] collection — 收藏系统

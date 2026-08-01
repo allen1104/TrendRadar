@@ -115,7 +115,7 @@ class SourceService:
             raise SourceNotFoundError
         return _to_response(source)
 
-    async def create(self, payload: SourceCreateRequest) -> SourceResponse:
+    async def create(self, payload: SourceCreateRequest, *, user: User | None = None) -> SourceResponse:
         # 校验 plugin_key 已注册
         try:
             get_plugin_class(payload.plugin_key)
@@ -137,10 +137,28 @@ class SourceService:
             enabled=payload.enabled,
         )
         log.info("source.created", id=source.id, name=source.name)
+        # 审计
+        if user is not None:
+            from app.modules.admin.enums import AuditAction, TargetType
+            from app.modules.admin.service import AuditService
+
+            await AuditService(self.session).record(
+                action=AuditAction.SOURCE_CREATE,
+                target_type=TargetType.SOURCE,
+                target_id=source.id,
+                after={
+                    "name": source.name,
+                    "plugin_key": source.plugin_key,
+                    "cron": source.cron,
+                    "enabled": source.enabled,
+                    "weight": source.weight,
+                },
+                actor=user,
+            )
         return _to_response(source)
 
     async def update(
-        self, source_id: int, payload: SourceUpdateRequest
+        self, source_id: int, payload: SourceUpdateRequest, *, user: User | None = None
     ) -> SourceResponse:
         source = await self.repo.get(source_id)
         if source is None:
@@ -156,25 +174,62 @@ class SourceService:
             "weight",
             "enabled",
         ]
+        before: dict = {}
+        after: dict = {}
         for f in fields:
             v = getattr(payload, f)
             if v is not None:
                 if f in ("region", "category"):
-                    setattr(source, f, v.value)
+                    new_val = v.value
                 else:
-                    setattr(source, f, v)
+                    new_val = v
+                old_val = getattr(source, f)
+                if old_val != new_val:
+                    before[f] = old_val
+                    after[f] = new_val
+                setattr(source, f, new_val)
         await self.repo.save(source)
         # flush 后属性过期，refresh 再读
         await self.session.refresh(source)
         log.info("source.updated", id=source.id)
+        # 审计
+        if user is not None and after:
+            from app.modules.admin.enums import AuditAction, TargetType
+            from app.modules.admin.service import AuditService
+
+            await AuditService(self.session).record(
+                action=AuditAction.SOURCE_UPDATE,
+                target_type=TargetType.SOURCE,
+                target_id=source_id,
+                before=before,
+                after=after,
+                actor=user,
+            )
         return _to_response(source)
 
-    async def delete(self, source_id: int) -> None:
+    async def delete(self, source_id: int, *, user: User | None = None) -> None:
         source = await self.repo.get(source_id)
         if source is None:
             raise SourceNotFoundError
+        before_snapshot = {
+            "name": source.name,
+            "plugin_key": source.plugin_key,
+            "enabled": source.enabled,
+        }
         await self.repo.soft_delete(source)
-        log.info("source.deleted", id=source.id)
+        log.info("source.deleted", id=source_id)
+        if user is not None:
+            from app.modules.admin.enums import AuditAction, TargetType
+            from app.modules.admin.service import AuditService
+
+            await AuditService(self.session).record(
+                action=AuditAction.SOURCE_DELETE,
+                target_type=TargetType.SOURCE,
+                target_id=source_id,
+                before=before_snapshot,
+                after=None,
+                actor=user,
+            )
 
     async def list_registered(self) -> list[RegisteredPluginInfo]:
         out: list[RegisteredPluginInfo] = []

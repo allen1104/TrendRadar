@@ -338,6 +338,8 @@ class AdminUserService:
         if will_lose_admin and await self.users.count_active_admins(exclude_id=user.id) == 0:
             raise LastAdminProtectedError
 
+        original_role = user.role
+        original_status = user.status
         if payload.role is not None:
             user.role = payload.role.value
         if payload.status is not None:
@@ -351,7 +353,29 @@ class AdminUserService:
             role=user.role,
             status=user.status,
         )
-        # TODO(admin 模块): AuditService.record("USER_ROLE_CHANGE", ...)
+        # 审计：分别记录 role / status 变更
+        from app.modules.admin.enums import AuditAction, TargetType
+        from app.modules.admin.service import AuditService
+
+        audit = AuditService(self.session)
+        if payload.role is not None and original_role != payload.role.value:
+            await audit.record(
+                action=AuditAction.USER_ROLE_CHANGE,
+                target_type=TargetType.USER,
+                target_id=user.id,
+                before={"role": original_role},
+                after={"role": payload.role.value},
+                actor=operator,
+            )
+        if payload.status is not None and original_status != payload.status.value:
+            await audit.record(
+                action=AuditAction.USER_STATUS_CHANGE,
+                target_type=TargetType.USER,
+                target_id=user.id,
+                before={"status": original_status},
+                after={"status": payload.status.value},
+                actor=operator,
+            )
         return AdminUserItem(
             user_id=user.id,
             email=user.email,

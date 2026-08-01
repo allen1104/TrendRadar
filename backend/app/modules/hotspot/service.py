@@ -372,7 +372,24 @@ class HotspotService:
             before=before,
             after=after,
         )
-        # TODO(admin): AuditService.record("EVENT_EDIT", "EVENT", event_id, before, after)
+        # 审计：content 字段变更 → EVENT_EDIT；仅 is_pinned/hide 开关 → EVENT_PIN/EVENT_HIDE
+        if before or after:
+            from app.modules.admin.enums import AuditAction, TargetType
+            from app.modules.admin.service import AuditService
+
+            action = AuditAction.EVENT_EDIT
+            if set(before.keys()) | set(after.keys()) <= {"is_pinned"}:
+                action = AuditAction.EVENT_PIN
+            elif set(before.keys()) | set(after.keys()) <= {"is_hidden"}:
+                action = AuditAction.EVENT_HIDE
+            await AuditService(self.session).record(
+                action=action,
+                target_type=TargetType.EVENT,
+                target_id=event_id,
+                before=before,
+                after=after,
+                actor=user,
+            )
         return await self.get_event_detail(event_id, user)
 
     async def unlock_field(self, event_id: int, field: str, user: User) -> None:
@@ -391,6 +408,19 @@ class HotspotService:
         await self.session.commit()
         await self._invalidate(event_id)
         log.info("hotspot.event.unlock", event_id=event_id, field=field, user_id=user.id)
+
+        from app.modules.admin.enums import AuditAction, TargetType
+        from app.modules.admin.service import AuditService
+
+        await AuditService(self.session).record(
+            action=AuditAction.EVENT_EDIT,
+            target_type=TargetType.EVENT,
+            target_id=event_id,
+            before={"manual_locked_fields": locked + [field]},
+            after={"manual_locked_fields": locked},
+            actor=user,
+            note=f"unlock field {field}",
+        )
 
     # ============================================================== 内部工具
 

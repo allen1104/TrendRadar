@@ -44,7 +44,249 @@ async def seed_admin_user() -> None:
 
 async def seed_system_configs() -> None:
     """写入 doc/SPEC-admin.md「系统配置项清单」中的 22 项配置。"""
-    log.info("seed.system_configs.skipped", reason="admin 模块尚未实现")
+    from app.modules.admin.enums import ConfigGroup, ValueType
+    from app.modules.admin.model import SystemConfig
+    from sqlalchemy import select
+
+    items: list[dict] = [
+        # group: DEDUPE
+        {
+            "config_key": "dedupe_title_threshold",
+            "config_value": 0.75,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "标题相似度直接合并阈值",
+            "description": "pg_trgm 相似度超过此值直接判定为同一事件。调高更保守（少合并），调低更激进（易误合并）",
+            "min_value": 0.5,
+            "max_value": 0.99,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "dedupe_title_candidate",
+            "config_value": 0.35,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "进入向量判定的候选阈值",
+            "description": "标题相似度高于此值进入 L3 向量精判",
+            "min_value": 0.1,
+            "max_value": 0.9,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "dedupe_vector_threshold",
+            "config_value": 0.85,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "向量相似度合并阈值",
+            "description": "余弦相似度超过此值判定为同一事件",
+            "min_value": 0.5,
+            "max_value": 0.99,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "dedupe_time_window_hours",
+            "config_value": 72,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "聚合时间窗口（小时）",
+            "description": "只在该时间窗口内的 article 参与合并",
+            "min_value": 1,
+            "max_value": 168,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "event_archive_hours",
+            "config_value": 72,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "事件归档阈值（小时）",
+            "description": "超过该小时无新来源则归档",
+            "min_value": 12,
+            "max_value": 720,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "article_max_age_days",
+            "config_value": 7,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.DEDUPE.value,
+            "display_name": "超龄文章丢弃阈值（天）",
+            "description": "首次入库 N 天前的 article 标 DISCARDED",
+            "min_value": 1,
+            "max_value": 30,
+            "requires_rerun": False,
+        },
+        # group: RANK
+        {
+            "config_key": "rank_weights",
+            "config_value": {"heat": 0.35, "value": 0.30, "originality": 0.20, "trend": 0.15},
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.RANK.value,
+            "display_name": "推荐指数权重",
+            "description": "四项之和必须等于 1。改后需重跑评分才生效",
+            "requires_rerun": True,
+        },
+        {
+            "config_key": "metric_weights",
+            "config_value": {"points": 1.0, "comments": 2.0, "stars": 0.5, "upvotes": 1.0},
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.RANK.value,
+            "display_name": "互动指标权重",
+            "description": "各互动指标的归一化权重",
+            "requires_rerun": True,
+        },
+        # group: AI
+        {
+            "config_key": "default_chat_model",
+            "config_value": "default-chat",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "默认对话模型别名",
+            "description": "未在 prompt 指定 model_alias 时使用",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "default_embedding_model",
+            "config_value": "local-bge-m3",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "默认 embedding 模型别名",
+            "description": "切换为不同维度的模型需全量重算向量",
+            "requires_rerun": True,
+        },
+        {
+            "config_key": "ai_fallback_chain",
+            "config_value": [],
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "降级链（模型别名数组）",
+            "description": "主模型失败后依次尝试的备用模型",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "ai_single_call_cost_limit_usd",
+            "config_value": 0.5,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "单次调用费用上限（USD）",
+            "description": "超过则直接拒绝执行",
+            "min_value": 0.01,
+            "max_value": 10.0,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "ai_daily_cost_limit_usd",
+            "config_value": 20.0,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "单日费用上限（USD）",
+            "description": "超限暂停所有系统触发的 AI 任务",
+            "min_value": 1.0,
+            "max_value": 1000.0,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "ai_user_rate_limit",
+            "config_value": 20,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "单用户 AI 调用频率（每小时）",
+            "description": "用户触发的 AI 调用每窗口允许次数",
+            "min_value": 1,
+            "max_value": 1000,
+            "requires_rerun": False,
+        },
+        # group: SCHEDULE
+        {
+            "config_key": "analyze_batch_cron",
+            "config_value": "0 */6 * * *",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.SCHEDULE.value,
+            "display_name": "事件分析任务调度",
+            "description": "AI 批量分析 PENDING_AI 事件的 cron",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "rank_cron",
+            "config_value": "10 */6 * * *",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.SCHEDULE.value,
+            "display_name": "评分入榜任务调度",
+            "description": "热度与推荐指数计算的 cron",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "cleanup_cron",
+            "config_value": "0 3 * * *",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.SCHEDULE.value,
+            "display_name": "日志清理任务调度",
+            "description": "过期日志物理删除的 cron",
+            "requires_rerun": False,
+        },
+        # group: SEARCH
+        {
+            "config_key": "search_text_config",
+            "config_value": "simple",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.SEARCH.value,
+            "display_name": "PG 全文检索配置",
+            "description": "simple（无中文分词）/ zhparser（需部署扩展）",
+            "requires_rerun": True,
+        },
+        # group: GENERAL
+        {
+            "config_key": "title_blacklist",
+            "config_value": [],
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "标题垃圾词黑名单",
+            "description": "命中标题的 article 会被 DISCARDED",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "site_notice",
+            "config_value": "",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "全站公告",
+            "description": "前台顶部横幅内容",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "fallback_embedding_model",
+            "config_value": "local-bge-m3",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "Embedding 降级模型",
+            "description": "本地 ONNX bge-m3 不可用时回退",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "max_pipeline_retry",
+            "config_value": 2,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "Pipeline 任务最大重试次数",
+            "description": "celery 任务 max_retries 覆盖值",
+            "min_value": 0,
+            "max_value": 10,
+            "requires_rerun": False,
+        },
+    ]
+
+    async with AsyncSessionLocal() as session:
+        existing = set(
+            (await session.execute(select(SystemConfig.config_key))).scalars().all()
+        )
+        created = 0
+        for item in items:
+            if item["config_key"] in existing:
+                continue
+            session.add(SystemConfig(**item, is_editable=True))
+            created += 1
+        await session.commit()
+        log.info("seed.system_configs.done", total=len(items), created=created)
 
 
 async def seed_prompt_templates() -> None:
@@ -111,8 +353,94 @@ async def seed_prompt_templates() -> None:
 
 
 async def seed_sources() -> None:
-    """写入一期 8 个采集源配置（见 doc/SPEC-source.md）。"""
-    log.info("seed.sources.skipped", reason="source 模块尚未实现")
+    """写入一期 6 个采集源配置（见 doc/SPEC-source.md）。
+
+    - hacker_news / github_trending / arxiv / huggingface（GLOBAL，4 个）
+    - jiqizhixin / qbitai（CN，2 个）—— 满足 SPEC「6-8 个」最低要求
+    """
+    from app.modules.source.enums import RunStatus
+    from app.modules.source.model import Source
+
+    presets = [
+        {
+            "plugin_key": "hacker_news",
+            "name": "Hacker News",
+            "region": "GLOBAL",
+            "category": "NEWS",
+            "home_url": "https://news.ycombinator.com",
+            "config": {"limit": 100},
+            "cron": "0 * * * *",
+            "weight": 9,
+            "enabled": True,
+        },
+        {
+            "plugin_key": "arxiv",
+            "name": "arXiv",
+            "region": "GLOBAL",
+            "category": "PAPER",
+            "home_url": "https://arxiv.org",
+            "config": {"categories": ["cs.AI", "cs.CL", "cs.LG"], "max_results": 50},
+            "cron": "0 */2 * * *",
+            "weight": 8,
+            "enabled": True,
+        },
+        {
+            "plugin_key": "github_trending",
+            "name": "GitHub Trending",
+            "region": "GLOBAL",
+            "category": "CODE",
+            "home_url": "https://github.com/trending",
+            "config": {"since": "daily"},
+            "cron": "30 * * * *",
+            "weight": 9,
+            "enabled": True,
+        },
+        {
+            "plugin_key": "huggingface",
+            "name": "HuggingFace Models",
+            "region": "GLOBAL",
+            "category": "MODEL",
+            "home_url": "https://huggingface.co/models",
+            "config": {"limit": 30},
+            "cron": "15 * * * *",
+            "weight": 8,
+            "enabled": True,
+        },
+        {
+            "plugin_key": "jiqizhixin",
+            "name": "机器之心",
+            "region": "CN",
+            "category": "NEWS",
+            "home_url": "https://www.jiqizhixin.com",
+            "config": {"feed_url": "https://www.jiqizhixin.com/rss", "limit": 30},
+            "cron": "10 * * * *",
+            "weight": 8,
+            "enabled": True,
+        },
+        {
+            "plugin_key": "qbitai",
+            "name": "量子位",
+            "region": "CN",
+            "category": "NEWS",
+            "home_url": "https://www.qbitai.com",
+            "config": {"feed_url": "https://www.qbitai.com/feed", "limit": 30},
+            "cron": "20 * * * *",
+            "weight": 7,
+            "enabled": True,
+        },
+    ]
+
+    async with AsyncSessionLocal() as session:
+        for p in presets:
+            existing = await session.execute(
+                Source.__table__.select().where(Source.name == p["name"])
+            )
+            if existing.first():
+                log.info("seed.source.exists", name=p["name"])
+                continue
+            session.add(Source(**p))
+        await session.commit()
+        log.info("seed.sources.done", total=len(presets))
 
 
 async def main() -> None:

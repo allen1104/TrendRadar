@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.logging import configure_logging
-from app.core.middleware import TraceIdMiddleware
+from app.core.middleware import RequestContextMiddleware, TraceIdMiddleware
 from app.core.redis import redis_client
+from app.modules.admin.api import router as admin_router
 from app.modules.ai.api import router as ai_admin_router
 from app.modules.auth.api import admin_router as auth_admin_router
 from app.modules.auth.api import router as auth_router
@@ -45,6 +46,7 @@ app = FastAPI(
 )
 
 app.add_middleware(TraceIdMiddleware)
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -116,6 +118,7 @@ async def ready() -> JSONResponse:
 
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ai_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(source_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(pipeline_admin_router, prefix=settings.API_V1_PREFIX)

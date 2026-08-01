@@ -149,6 +149,7 @@ GET /events/{id}
 | S. 还原 | PATCH 回原值 | ✅ isPinned=False，locked=[]（再次解锁 204） |
 | T. 分页 | size=2 → 14 条 → 7 页 | ✅ |
 | U. 前端 | `pnpm typecheck` | ✅ |
+| V. 单测 | `uv run pytest tests/hotspot/ --cov=app.modules.hotspot` | ✅ 74 passed，coverage 75%（enums/exceptions/schema/service/api 全 100% 或 ≥85%） |
 
 ### 端到端冒烟
 
@@ -177,3 +178,14 @@ curl -s -X PATCH "$B/events/9" -H "Authorization: Bearer $TOKEN" -H 'Content-Typ
 - 缺 EDITOR 运营的"拆分 / 合并"前端入口（后端 `pipeline/api.py` 已实现 `/events/{id}/split` / `/events/merge`，前端按钮在事件详情页 EDITOR 浮栏里加）
 - 缺 AuditService 集成（admin 模块做）
 - pipeline 监控页（漏斗图 / 状态饼图 / 重跑面板）也在 admin 模块
+
+## 单测结构
+
+```
+tests/hotspot/
+  test_enums.py     # Scope / CategoryFilter / SORT_WHITELIST / LOCKABLE_FIELDS / AI_CATEGORY_GROUP 不变量
+  test_service.py    # _parse_sort / keyword / PinAndHide / manual_lock 流转 / 缓存命中短路 / 缓存异常降级 / _muted_sources / 趋势+相关组装
+  test_api.py        # FastAPI TestClient + 依赖覆盖：参数 camelCase 别名、权限门槛、Pydantic 校验、异常 → 错误码转换
+```
+
+repository.py 18% 覆盖（SQL 查询需测试 DB，FAKE redis 不够；建议下阶段接上测试 DB 后补齐）。

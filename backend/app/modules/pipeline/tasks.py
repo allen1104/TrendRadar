@@ -24,6 +24,7 @@ from app.modules.pipeline.repository import (
     ArticleRepository,
 )
 from app.modules.pipeline.service import PipelineService
+from app.modules.admin.decorator import tracked_task
 from app.worker.celery_app import celery_app
 
 configure_logging()
@@ -45,6 +46,7 @@ def _run(coro):  # type: ignore[no-untyped-def]
 # ---------------------------------------------------------------- 清洗
 
 
+@tracked_task(manual_triggerable=True, display_name="清洗 RAW 文章")
 @celery_app.task(name="pipeline.clean", bind=True, max_retries=2, default_retry_delay=30)
 def clean_task(self, article_ids: list[int]) -> dict[str, int]:
     """清洗 RAW → CLEANED。成功后链式触发 embed_task。"""
@@ -90,6 +92,7 @@ def clean_task(self, article_ids: list[int]) -> dict[str, int]:
 # ---------------------------------------------------------------- 向量化
 
 
+@tracked_task(manual_triggerable=True, display_name="生成向量")
 @celery_app.task(name="pipeline.embed", bind=True, max_retries=3, default_retry_delay=30)
 def embed_task(self, article_ids: list[int], model_alias: str = "local-bge-m3") -> dict[str, int]:
     """CLEANED → EMBEDDED。批量 32 条调 LocalEmbeddingProvider。
@@ -167,6 +170,7 @@ def embed_task(self, article_ids: list[int], model_alias: str = "local-bge-m3") 
 # ---------------------------------------------------------------- 去重聚合
 
 
+@tracked_task(manual_triggerable=True, display_name="三级去重聚合")
 @celery_app.task(name="pipeline.dedupe", bind=True, max_retries=2, default_retry_delay=60)
 def dedupe_task(self) -> dict[str, int]:
     """三级级联去重：指纹 → pg_trgm 标题 → pgvector 余弦。
@@ -413,6 +417,7 @@ async def _merge_into_event(session, art: Article, event_id: int, level: MatchLe
 # ---------------------------------------------------------------- AI 分析
 
 
+@tracked_task(manual_triggerable=True, display_name="事件 AI 分析")
 @celery_app.task(name="pipeline.analyze_event", bind=True, max_retries=2, default_retry_delay=30)
 def analyze_event_task(self, event_id: int, force: bool = False) -> dict[str, Any]:
     """调用 ai-engine 的 EventAnalysisService 分析一个事件。"""
@@ -448,6 +453,7 @@ def analyze_event_task(self, event_id: int, force: bool = False) -> dict[str, An
 # ---------------------------------------------------------------- 评分入榜
 
 
+@tracked_task(manual_triggerable=True, display_name="评分入榜")
 @celery_app.task(name="pipeline.rank", bind=True, max_retries=2, default_retry_delay=30)
 def rank_task(self) -> dict[str, int]:
     """给 72h 活跃事件计算 heat_score + recommend_index。"""
@@ -580,6 +586,7 @@ async def _async_rank() -> dict[str, int]:
 # ---------------------------------------------------------------- 重跑
 
 
+@tracked_task(manual_triggerable=True, display_name="手动重跑流水线")
 @celery_app.task(name="pipeline.rerun", bind=True)
 def rerun_task(self, stage: str, scope: str, ids: list[int] | None = None, since: str | None = None) -> dict[str, Any]:
     """手动重跑某个阶段。
@@ -631,6 +638,7 @@ def rerun_task(self, stage: str, scope: str, ids: list[int] | None = None, since
 
 # ---------------------------------------------------------------- 事件归档
 
+@tracked_task(manual_triggerable=True, display_name="事件归档")
 @celery_app.task(name="pipeline.archive", bind=True)
 def archive_task(self) -> dict[str, int]:
     """每小时跑一次：把 last_seen_at 超过 72 小时且未归档的事件标 ARCHIVED。"""

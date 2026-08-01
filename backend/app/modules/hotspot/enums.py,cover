@@ -1,0 +1,50 @@
+> """hotspot 模块枚举与白名单。"""
+  
+> from __future__ import annotations
+  
+> from enum import StrEnum
+  
+  
+> class Scope(StrEnum):
+>     """时间维度。"""
+  
+>     TODAY = "TODAY"
+>     WEEK = "WEEK"
+>     MONTH = "MONTH"
+>     ALL = "ALL"
+  
+  
+> class CategoryFilter(StrEnum):
+>     """分类维度。前 7 个是榜单 Tab，其余是 pipeline 的 11 个业务分类。"""
+  
+>     ALL = "ALL"
+>     GLOBAL = "GLOBAL"
+>     CN = "CN"
+>     AI = "AI"
+>     GITHUB = "GITHUB"
+>     PAPER = "PAPER"
+>     AGENT = "AGENT"
+      # 11 个业务分类（见 SPEC-pipeline「分类枚举」）
+>     LLM = "LLM"
+>     MCP = "MCP"
+>     PROGRAMMING = "PROGRAMMING"
+>     OPENSOURCE = "OPENSOURCE"
+>     STARTUP = "STARTUP"
+>     HARDWARE = "HARDWARE"
+>     INTERNET = "INTERNET"
+>     BUSINESS = "BUSINESS"
+  
+  
+  #: 排序字段白名单：外部 camelCase 名 → ORM 列名
+> SORT_WHITELIST: dict[str, str] = {
+>     "recommendIndex": "recommend_index",
+>     "heatScore": "heat_score",
+>     "lastSeenAt": "last_seen_at",
+>     "sourceCount": "source_count",
+> }
+  
+  #: `category=AI` Tab 命中的分类集合
+> AI_CATEGORY_GROUP = ("AI", "LLM", "AGENT", "MCP")
+  
+  #: 可被人工锁定的字段（PATCH 后 AI 重跑不覆盖）
+> LOCKABLE_FIELDS = ("title", "summaryOneLine", "categories")

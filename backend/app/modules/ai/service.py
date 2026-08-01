@@ -422,6 +422,11 @@ class PromptService:
         p = await self.repo.get(prompt_id)
         if p is None:
             raise PromptNotFoundError
+        # 捕获旧的 active 版本（审计用）
+        previous_active = next(
+            (o for o in await self.repo.list(task_key=p.task_key, only_active=True) if o.id != p.id),
+            None,
+        )
         # 同 task_key 其他版本置为非激活
         others = await self.repo.list(task_key=p.task_key, only_active=True)
         for o in others:
@@ -432,6 +437,17 @@ class PromptService:
         # flush 后属性过期，refresh 一下再读
         await self.session.refresh(p)
         log.info("ai.prompt.activated", id=p.id, task_key=p.task_key, version=p.version)
+        # 审计
+        from app.modules.admin.enums import AuditAction, TargetType
+        from app.modules.admin.service import AuditService
+
+        await AuditService(self.session).record(
+            action=AuditAction.PROMPT_ACTIVATE,
+            target_type=TargetType.PROMPT,
+            target_id=p.id,
+            before={"active_version": previous_active.version if previous_active else None},
+            after={"active_version": p.version},
+        )
         return self._to_response(p)
 
     async def dry_run(

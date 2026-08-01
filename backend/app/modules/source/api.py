@@ -71,9 +71,9 @@ async def get_source(source_id: int, _: EditorUser, session: DbSession) -> Sourc
     summary="新建采集源",
 )
 async def create_source(
-    payload: SourceCreateRequest, _: AdminUser, session: DbSession
+    payload: SourceCreateRequest, user: AdminUser, session: DbSession
 ) -> SourceResponse:
-    return await SourceService(session).create(payload)
+    return await SourceService(session).create(payload, user=user)
 
 
 @router.patch(
@@ -82,17 +82,17 @@ async def create_source(
 async def update_source(
     source_id: int,
     payload: SourceUpdateRequest,
-    _: AdminUser,
+    user: AdminUser,
     session: DbSession,
 ) -> SourceResponse:
-    return await SourceService(session).update(source_id, payload)
+    return await SourceService(session).update(source_id, payload, user=user)
 
 
 @router.delete(
     "/{source_id}", status_code=status.HTTP_204_NO_CONTENT, summary="软删除采集源"
 )
-async def delete_source(source_id: int, _: AdminUser, session: DbSession) -> None:
-    await SourceService(session).delete(source_id)
+async def delete_source(source_id: int, user: AdminUser, session: DbSession) -> None:
+    await SourceService(session).delete(source_id, user=user)
 
 
 # ------------------------------------------- 试跑 + 立即运行 + 日志

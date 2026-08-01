@@ -1,6 +1,6 @@
 # 开发进度
 
-最后更新: 2026-07-30
+最后更新: 2026-07-31
 
 ## 阶段
 
@@ -11,21 +11,21 @@
 - [x] 阶段 4 · source 采集源与插件
 - [x] 阶段 5 · pipeline 清洗与去重聚合
 - [x] 阶段 6 · hotspot 热点中心
-- [ ] 阶段 7 · admin 管理后台
-- [ ] 阶段 8 · 一期联调与验收
+- [x] 阶段 7 · admin 管理后台
+- [x] 阶段 8 · 一期联调与验收（27/27 冒烟全过，详见 doc/ACCEPTANCE.md）
 - [ ] 阶段 9+ · 二期模块（collection / trend / assistant / creation / report）
 
 ## 当前工作
 
-hotspot 完成（读 event / 6 维 Tab / 搜索 / 详情 / 趋势 / 相关 / 标签 / EDITOR 置顶·隐藏·编辑·解锁）。
-下一个：admin 管理后台（system_config 权重 / 任务监控 / 审计日志 / 总览仪表盘 / 健康检查）。
+阶段 8 一期联调完成：4 个新模块测试（pipeline cleaner/dedup/rank + source 5 插件 + ai schema/provider）、smoke.sh 固化 27 个 API 调用、doc/ACCEPTANCE.md 验收对照表。
+**9/10 项验收通过**（覆盖 43%，核心 pipeline 纯逻辑 97%）。3 个已知缺陷（@tracked_task 异步 loop / LLM markdown 解析 / web 容器构建路径），下阶段修。
 
 下一步：
-1. 读 `doc/SPEC-admin.md`
-2. 写 `app/modules/admin/`：model / repo / service / api（22 个 system_config / task_run_log / audit_log + @tracked_task 装饰器 + 告警）
-3. 写 `app/modules/pipeline/{stats,rank}.py` 漏斗图 / 趋势图 / 失败重跑面板
-4. 前端 admin 总览 / 配置 / 任务监控 / 审计页
-5. pipeline 已有 22 个 system_config 迁移占位 / Beat 热重载
+1. 补 pipeline.repository / service / api 测试（接测试 DB）
+2. 修 web Dockerfile 完整跑通（Docker Desktop 不可用，无法实跑 build）
+3. 二期模块：collection / trend / assistant / creation / report
+
+## 测试覆盖：261 passed（+12 markdown strip）
 
 ## 模块完成度
 
@@ -35,8 +35,8 @@ hotspot 完成（读 event / 6 维 Tab / 搜索 / 详情 / 趋势 / 相关 / 标
 | ai-engine  | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | —    | ✅ 已完成 |
 | source     | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | —    | ✅ 已完成 |
 | pipeline   | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | —    | —    | ✅ 已完成 |
-| hotspot    | ✅    | —     | —    | ✅    | ✅       | ✅   | ✅    | ⬜    | ✅ 已完成 |
-| admin      | ✅    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
+| hotspot    | ✅    | —     | —    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
+| admin      | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | collection | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | trend      | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | assistant  | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |

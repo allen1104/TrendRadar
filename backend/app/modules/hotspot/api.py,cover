@@ -1,0 +1,124 @@
+> """hotspot 路由：热点榜单 / 事件详情 / 趋势 / 标签 / EDITOR 运营干预。"""
+  
+> from __future__ import annotations
+  
+> from datetime import datetime
+> from typing import Annotated
+  
+> from fastapi import APIRouter, Depends, Query, Response, status
+  
+> from app.core.pagination import PageParams, page_params
+> from app.core.schema import Page
+> from app.modules.auth.deps import DbSession, EditorUser, OptionalUser
+> from app.modules.hotspot.enums import CategoryFilter, Scope
+> from app.modules.hotspot.schema import (
+>     EventDetail,
+>     EventListItem,
+>     EventTrendResponse,
+>     EventUpdateRequest,
+>     RelatedEventItem,
+>     TagItem,
+> )
+> from app.modules.hotspot.service import HotspotService
+  
+> router = APIRouter(prefix="/events", tags=["hotspot"])
+> tags_router = APIRouter(prefix="/tags", tags=["hotspot"])
+  
+  
+> @router.get("", response_model=Page[EventListItem], summary="热点榜单（GUEST 可访问）")
+> async def list_events(
+>     session: DbSession,
+>     user: OptionalUser,
+>     pagination: Annotated[PageParams, Depends(page_params)],
+>     scope: Annotated[Scope, Query(description="时间维度")] = Scope.TODAY,
+>     category: Annotated[CategoryFilter, Query(description="分类维度")] = CategoryFilter.ALL,
+>     sort: Annotated[
+>         str,
+>         Query(description="recommendIndex / heatScore / lastSeenAt / sourceCount，前缀 - 倒序"),
+>     ] = "-recommendIndex",
+>     keyword: Annotated[str | None, Query(description="全文搜索关键词，≥2 字符")] = None,
+>     tag_ids: Annotated[list[int] | None, Query(alias="tagIds", description="标签过滤（AND）")] = None,
+>     source_ids: Annotated[
+>         list[int] | None, Query(alias="sourceIds", description="来源过滤（OR）")
+>     ] = None,
+>     min_recommend: Annotated[
+>         int | None, Query(alias="minRecommend", ge=0, le=100, description="推荐指数下限")
+>     ] = None,
+>     start_date: Annotated[datetime | None, Query(alias="startDate")] = None,
+>     end_date: Annotated[datetime | None, Query(alias="endDate")] = None,
+>     include_hidden: Annotated[
+>         bool, Query(alias="includeHidden", description="仅 EDITOR 及以上生效")
+>     ] = False,
+> ) -> Page[EventListItem]:
+>     return await HotspotService(session).list_events(
+>         scope=scope,
+>         category=category,
+>         sort=sort,
+>         keyword=keyword,
+>         tag_ids=tag_ids,
+>         source_ids=source_ids,
+>         min_recommend=min_recommend,
+>         start_date=start_date,
+>         end_date=end_date,
+>         include_hidden=include_hidden,
+>         page=pagination.page,
+>         size=pagination.size,
+>         user=user,
+>     )
+  
+  
+> @router.get("/{event_id}", response_model=EventDetail, summary="事件详情（GUEST 可访问）")
+> async def get_event(event_id: int, session: DbSession, user: OptionalUser) -> EventDetail:
+>     return await HotspotService(session).get_event_detail(event_id, user)
+  
+  
+> @router.get(
+>     "/{event_id}/trend", response_model=EventTrendResponse, summary="事件近 7 天热度曲线"
+> )
+> async def get_event_trend(
+>     event_id: int, session: DbSession, user: OptionalUser
+> ) -> EventTrendResponse:
+>     return await HotspotService(session).get_trend(event_id, user)
+  
+  
+> @router.get(
+>     "/{event_id}/related",
+>     response_model=list[RelatedEventItem],
+>     summary="相关事件推荐（向量相似 Top N）",
+> )
+> async def get_related_events(
+>     event_id: int,
+>     session: DbSession,
+>     user: OptionalUser,
+>     limit: Annotated[int, Query(ge=1, le=20)] = 5,
+> ) -> list[RelatedEventItem]:
+>     return await HotspotService(session).get_related(event_id, user, limit=limit)
+  
+  
+> @router.patch("/{event_id}", response_model=EventDetail, summary="运营干预（EDITOR 及以上）")
+> async def update_event(
+>     event_id: int, payload: EventUpdateRequest, user: EditorUser, session: DbSession
+> ) -> EventDetail:
+>     return await HotspotService(session).update_event(event_id, payload, user)
+  
+  
+> @router.delete(
+>     "/{event_id}/manual-lock/{field}",
+>     status_code=status.HTTP_204_NO_CONTENT,
+>     summary="解除字段的人工锁定（EDITOR 及以上）",
+> )
+> async def unlock_manual_field(
+>     event_id: int, field: str, user: EditorUser, session: DbSession
+> ) -> Response:
+>     await HotspotService(session).unlock_field(event_id, field, user)
+>     return Response(status_code=status.HTTP_204_NO_CONTENT)
+  
+  
+> @tags_router.get("", response_model=list[TagItem], summary="标签列表（GUEST 可访问）")
+> async def list_tags(
+>     session: DbSession,
+>     keyword: Annotated[str | None, Query(description="标签名模糊搜索")] = None,
+>     type: Annotated[str | None, Query(description="TECH/COMPANY/PRODUCT/PERSON/OTHER")] = None,
+>     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+> ) -> list[TagItem]:
+>     return await HotspotService(session).list_tags(keyword=keyword, tag_type=type, limit=limit)

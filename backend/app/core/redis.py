@@ -46,3 +46,15 @@ class RedisKey:
     @staticmethod
     def hotspot_event(event_id: int) -> str:
         return f"hotspot:event:{event_id}"
+
+    @staticmethod
+    def config_cache(key: str) -> str:
+        return f"config:cache:{key}"
+
+    @staticmethod
+    def beat_reload_channel() -> str:
+        return "ops:beat:reload"
+
+    @staticmethod
+    def task_running_lock(task_name: str) -> str:
+        return f"task:{task_name}:running"

@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.db.base import Base
 
 # 各模块的 model 在此 import，Alembic autogenerate 才能发现它们
+from app.modules.admin import model as _admin_model  # noqa: F401
 from app.modules.ai import model as _ai_model  # noqa: F401
 from app.modules.auth import model as _auth_model  # noqa: F401
 from app.modules.pipeline import model as _pipeline_model  # noqa: F401

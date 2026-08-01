@@ -1,0 +1,21 @@
+# 不要把本地 node_modules 拷进镜像（pnpm symlink 会让 buildkit 解析失败）
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.local
+.vscode
+.idea
+*.log
+.DS_Store
+coverage
+.cache
+.turbo
+.next
+# 测试产物
+playwright-report
+test-results
+# 文档
+*.md
+docs

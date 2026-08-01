@@ -49,8 +49,10 @@ class FakeRedis:
             return None
         return self._data.get(key)
 
-    async def set(self, key: str, value: Any) -> bool:
+    async def set(self, key: str, value: Any, ex: int | None = None) -> bool:
         self._data[key] = str(value)
+        if ex is not None:
+            self._expire_at[key] = time.monotonic() + ex
         return True
 
     async def setex(self, key: str, ttl: int, value: Any) -> bool:

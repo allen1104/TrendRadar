@@ -19,6 +19,20 @@ from app.modules.ai.gateway.types import LLMRequest, LLMResponse
 log = structlog.get_logger()
 
 _CAMEL_KEY_RE = re.compile(r'"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:')
+# 抓被 ```json ... ``` 包裹的整块
+_MD_BLOCK_RE = re.compile(r"```(?:json|JSON)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
+# 剥单独的 ``` 行（无匹配块时回退用）
+_MD_FENCE_LINE_RE = re.compile(r"^\s*```(?:json|JSON)?\s*$", re.MULTILINE)
+
+
+def _strip_markdown_fence(text: str) -> str:
+    """剥 markdown 三反引号包裹（DeepSeek/Qwen 经常把 JSON 放在 ```json ... ``` 里）。"""
+    if not text or "```" not in text:
+        return text
+    m = _MD_BLOCK_RE.search(text)
+    if m:
+        return m.group(1).strip()
+    return _MD_FENCE_LINE_RE.sub("", text).strip()
 
 
 def _normalize_camel_to_snake(text: str) -> str:
@@ -30,13 +44,17 @@ def _normalize_camel_to_snake(text: str) -> str:
     if not text or "{" not in text:
         return text
 
+    text = _strip_markdown_fence(text)
+
     def _key(m: re.Match[str]) -> str:
         k = m.group(1)
         if "_" in k:
             return m.group(0)
-        s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", k)
+        # summaryOneLine → summary_one_line（不是 summary_One_Line）
+        # 第一步：处理连续大写 + 后面小写（少见）；第二步：小写/数字 → 大写边界
+        s1 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", k)
         s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1)
-        return f'"{s2}":'
+        return f'"{s2.lower()}":'
 
     return _CAMEL_KEY_RE.sub(_key, text)
 
