@@ -39,6 +39,7 @@ class TestTargetType:
     def test_set(self) -> None:
         assert {t.value for t in TargetType} == {
             "EVENT", "SOURCE", "USER", "PROMPT", "MODEL", "PROVIDER", "CONFIG", "SYSTEM",
+            "COLLECTION_FOLDER", "COLLECTION_ITEM",
         }
 
 

@@ -12,6 +12,7 @@ from app.db.base import Base
 from app.modules.admin import model as _admin_model  # noqa: F401
 from app.modules.ai import model as _ai_model  # noqa: F401
 from app.modules.auth import model as _auth_model  # noqa: F401
+from app.modules.collection import model as _collection_model  # noqa: F401
 from app.modules.pipeline import model as _pipeline_model  # noqa: F401
 from app.modules.source import model as _source_model  # noqa: F401
 

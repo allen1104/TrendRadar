@@ -16,6 +16,11 @@ from app.core.middleware import RequestContextMiddleware, TraceIdMiddleware
 from app.core.redis import redis_client
 from app.modules.admin.api import router as admin_router
 from app.modules.ai.api import router as ai_admin_router
+from app.modules.collection.api import (
+    folders_router as collection_folders_router,
+    items_router as collection_items_router,
+    stats_router as collection_stats_router,
+)
 from app.modules.auth.api import admin_router as auth_admin_router
 from app.modules.auth.api import router as auth_router
 from app.modules.hotspot.api import router as hotspot_router
@@ -119,6 +124,15 @@ async def ready() -> JSONResponse:
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(
+    collection_folders_router, prefix=f"{settings.API_V1_PREFIX}/collections"
+)
+app.include_router(
+    collection_items_router, prefix=f"{settings.API_V1_PREFIX}/collections"
+)
+app.include_router(
+    collection_stats_router, prefix=f"{settings.API_V1_PREFIX}/collections"
+)
 app.include_router(ai_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(source_admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(pipeline_admin_router, prefix=settings.API_V1_PREFIX)

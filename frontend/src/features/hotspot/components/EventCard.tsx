@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { CollectionStarButton } from '@/features/collection/components/CollectionStarButton'
 import type { EventListItem } from '@/features/hotspot/api/hotspot'
 import { cn } from '@/lib/utils'
 
@@ -110,7 +111,10 @@ function EventCardInner({ event, isEditor = false }: Props) {
           )}
         </div>
 
-        <RecommendRing value={event.recommendIndex} />
+        <div className="flex flex-col items-center gap-2">
+          <RecommendRing value={event.recommendIndex} />
+          <CollectionStarButton eventId={event.id} isCollected={event.isCollected ?? false} />
+        </div>
       </div>
 
       {/* 底部信息条 */}

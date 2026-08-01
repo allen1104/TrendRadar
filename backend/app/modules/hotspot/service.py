@@ -99,9 +99,10 @@ class HotspotService:
 
         muted = await self._muted_sources(user)
 
-        # 只缓存「无关键词 / 无自定义筛选 / 无个性化屏蔽」的默认榜单前 3 页
+        # 只缓存「无关键词 / 无自定义筛选 / 无个性化屏蔽 / 仅 GUEST」的默认榜单前 3 页
         cacheable = (
-            keyword is None
+            user is None  # 登录用户的 is_collected 个性化
+            and keyword is None
             and not tag_ids
             and not source_ids
             and min_recommend is None
@@ -132,19 +133,29 @@ class HotspotService:
             limit=size,
         )
 
-        items = await self._assemble_list_items(rows)
+        items = await self._assemble_list_items(rows, user)
         result = Page[EventListItem].create(items=items, total=total, page=page, size=size)
         if cacheable:
             await self._cache_set(cache_key, result.model_dump(mode="json"), RANK_CACHE_TTL)
         return result
 
-    async def _assemble_list_items(self, rows: list[Any]) -> list[EventListItem]:
+    async def _assemble_list_items(
+        self, rows: list[Any], user: User | None = None
+    ) -> list[EventListItem]:
         """一次批量查询后在内存组装，避免 N+1。"""
         event_ids = [e.id for e in rows]
         sources_map = await self.repo.map_sources(event_ids)
         tags_map = await self.repo.map_tags(event_ids)
         url_map = await self.repo.map_primary_article_url(event_ids)
         worth_map = await self.repo.map_worth_article(event_ids)
+        # 已登录用户：批量查 isCollected（一次性单 SQL）
+        collected_ids: set[int] = set()
+        if user is not None and event_ids:
+            from app.modules.collection.service import CollectionService
+
+            collected_ids = await CollectionService(
+                self.session
+            ).list_collected_event_ids(user.id, event_ids)
 
         items: list[EventListItem] = []
         for e in rows:
@@ -184,7 +195,7 @@ class HotspotService:
                     is_pinned=e.is_pinned,
                     is_hidden=e.is_hidden,
                     is_manually_edited=e.is_manually_edited,
-                    is_collected=False,  # collection 模块（二期）接入后返回真实值
+                    is_collected=(e.id in collected_ids) if user else False,
                 )
             )
         return items
@@ -193,7 +204,9 @@ class HotspotService:
 
     async def get_event_detail(self, event_id: int, user: User | None) -> EventDetail:
         is_editor = user is not None and has_role(user.role, Role.EDITOR)
-        if not is_editor and (cached := await self._cache_get(RedisKey.hotspot_event(event_id))):
+        # 登录用户（含 USER）的 is_collected 个性化，不进缓存（避免给 A 用户的收藏被 B 用户复用）
+        use_cache = user is None
+        if use_cache and (cached := await self._cache_get(RedisKey.hotspot_event(event_id))):
             return EventDetail.model_validate(cached)
 
         event = await self.repo.get_event(event_id)
@@ -206,6 +219,16 @@ class HotspotService:
         analysis = await self.repo.get_analysis(event_id)
         articles = await self.repo.list_event_articles(event_id)
         tags_map = await self.repo.map_tags([event_id])
+
+        # 已登录用户单查 is_collected
+        is_collected = False
+        if user is not None:
+            from app.modules.collection.service import CollectionService
+
+            collected = await CollectionService(
+                self.session
+            ).list_collected_event_ids(user.id, [event_id])
+            is_collected = event_id in collected
 
         detail = EventDetail(
             id=event.id,
@@ -278,10 +301,10 @@ class HotspotService:
                 )
                 for a, s, ea in articles
             ],
-            is_collected=False,
+            is_collected=is_collected,
         )
 
-        if not is_editor:
+        if use_cache:  # 仅匿名请求可缓存（登录用户的 is_collected 个性化）
             await self._cache_set(
                 RedisKey.hotspot_event(event_id), detail.model_dump(mode="json"), EVENT_CACHE_TTL
             )

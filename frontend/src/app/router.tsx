@@ -13,6 +13,7 @@ import { RedirectIfAuthenticated, RequireRole } from '@/features/auth/components
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { CollectionPage } from '@/features/collection/pages/CollectionPage'
 import { EventDetailPage } from '@/features/hotspot/pages/EventDetailPage'
 import { HotspotPage } from '@/features/hotspot/pages/HotspotPage'
 
@@ -97,7 +98,7 @@ export const router = createBrowserRouter([
         path: 'collections',
         element: (
           <RequireRole minRole="USER">
-            <Placeholder title="我的收藏" module="collection" />
+            <CollectionPage />
           </RequireRole>
         ),
       },

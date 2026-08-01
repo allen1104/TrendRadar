@@ -1,6 +1,6 @@
 # 开发进度
 
-最后更新: 2026-07-31
+最后更新: 2026-08-01
 
 ## 阶段
 
@@ -13,19 +13,19 @@
 - [x] 阶段 6 · hotspot 热点中心
 - [x] 阶段 7 · admin 管理后台
 - [x] 阶段 8 · 一期联调与验收（27/27 冒烟全过，详见 doc/ACCEPTANCE.md）
-- [ ] 阶段 9+ · 二期模块（collection / trend / assistant / creation / report）
+- [x] 阶段 9 · 二期首模块 collection（40 单测 + typecheck/build 通过）
+- [ ] 阶段 10 · 后续二期模块（trend / assistant / creation / report）
 
 ## 当前工作
 
-阶段 8 一期联调完成：4 个新模块测试（pipeline cleaner/dedup/rank + source 5 插件 + ai schema/provider）、smoke.sh 固化 27 个 API 调用、doc/ACCEPTANCE.md 验收对照表。
-**9/10 项验收通过**（覆盖 43%，核心 pipeline 纯逻辑 97%）。3 个已知缺陷（@tracked_task 异步 loop / LLM markdown 解析 / web 容器构建路径），下阶段修。
+阶段 9 collection 模块完成：2 张表 + 11 个 API + 13 个 service 方法，hotspot 集成 `isCollected` 真实值（全栈 301 测试无回归），前端 MVP（⭐ 按钮 + /collections 页面 + 编辑弹窗 + 批量操作）通过 typecheck 与 build。
 
 下一步：
-1. 补 pipeline.repository / service / api 测试（接测试 DB）
-2. 修 web Dockerfile 完整跑通（Docker Desktop 不可用，无法实跑 build）
-3. 二期模块：collection / trend / assistant / creation / report
+1. 后续二期模块按 SPEC 顺序：trend → assistant → creation → report
+2. 文档补完（hotspot+collection 跨模块联动写进 doc/ACCEPTANCE.md）
+3. 端到端冒烟补 collection 段（需要实跑的 Docker 环境）
 
-## 测试覆盖：261 passed（+12 markdown strip）
+## 测试覆盖：301 passed
 
 ## 模块完成度
 
@@ -37,7 +37,7 @@
 | pipeline   | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | —    | —    | ✅ 已完成 |
 | hotspot    | ✅    | —     | —    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | admin      | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
-| collection | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
+| collection | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | trend      | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | assistant  | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 | creation   | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
@@ -59,3 +59,7 @@
 | 2026-07-30 | pgvector 列在 SQLAlchemy ORM 中不建模，repository 用原生 SQL `CAST(:vec AS vector)` 写入 | ORM 不识别 vector 类型；命名参数 + `::vector` cast 在 asyncpg 下报语法错 |
 | 2026-07-30 | `_run()` 协程桥接里 finally 调 `engine.dispose()` | Celery solo 跨多次 `asyncio.run()` 共享连接池，旧 loop 关闭后 asyncpg 连接失效 |
 | 2026-07-30 | pipeline embed_task 直接用 `LocalEmbeddingProvider`，不走 LMGateway.embed() | gateway 内部 `_build_provider(model.provider)` 触发 sync lazy load，在 Celery 异步上下文里崩 |
+| 2026-08-01 | hotspot 调 collection 用 inline import | hotspot service 与 collection service 无循环依赖（collection 依赖 pipeline，与 hotspot 同向）；inline import 避免顶层副作用 |
+| 2026-08-01 | 登录用户跳过 hotspot cache | `is_collected` 是 per-user 状态，混合缓存会泄漏 A 给 B |
+| 2026-08-01 | collection API 用 Query(alias) + 字符串自己 split 逗号分隔 | FastAPI `list[int]` Query 不解析逗号分隔，前端要重发 4 次；改手工 split 后 `/event-ids?eventIds=1,2,3,4` 一发搞定 |
+| 2026-08-01 | `event_ids` API 返回 `set[int]` 而非 Pydantic DTO | service 内部统一 `set`（去重 + O(1) `in` 查询）；前端 API 层再自己包 `CollectedEventIdsResponse` |

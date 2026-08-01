@@ -104,6 +104,22 @@ def _make_service(redis: FakeRedis | None = None) -> Any:
     return svc, session, repo
 
 
+def _patch_collection_list_ids(return_value: set[int] | None = None) -> Any:
+    """让 hotspot service 内部 inline import 的 CollectionService.list_collected_event_ids 直接返回空。
+
+    hotspot 是单元测试，主要测业务流；新接入 collection 的 SQL 不归它管。
+    """
+    from app.modules.collection import service as collection_service
+
+    if return_value is None:
+        return_value = set()
+    return patch.object(
+        collection_service.CollectionService,
+        "list_collected_event_ids",
+        AsyncMock(return_value=return_value),
+    )
+
+
 # ------------------------------------------------------------------ _parse_sort
 
 
@@ -349,7 +365,8 @@ class TestGetEventDetail:
         repo.list_event_articles = AsyncMock(return_value=[])
         repo.map_tags = AsyncMock(return_value={})
 
-        with patch("app.modules.hotspot.service.redis_client", FakeRedis()):
+        with patch("app.modules.hotspot.service.redis_client", FakeRedis()), \
+             _patch_collection_list_ids():
             detail = await svc.get_event_detail(99, user=_user(Role.EDITOR))
         assert detail.id == 99
 
@@ -405,7 +422,8 @@ class TestUpdateEvent:
         repo.map_primary_article_url = AsyncMock(return_value={})
         repo.map_worth_article = AsyncMock(return_value={})
 
-        with patch("app.modules.hotspot.service.redis_client", FakeRedis()):
+        with patch("app.modules.hotspot.service.redis_client", FakeRedis()), \
+             _patch_collection_list_ids():
             detail = await svc.update_event(
                 event_id=1,
                 payload=EventUpdateRequest(title="新标题"),
@@ -427,7 +445,8 @@ class TestUpdateEvent:
         repo.list_event_articles = AsyncMock(return_value=[])
         repo.map_tags = AsyncMock(return_value={})
 
-        with patch("app.modules.hotspot.service.redis_client", FakeRedis()):
+        with patch("app.modules.hotspot.service.redis_client", FakeRedis()), \
+             _patch_collection_list_ids():
             await svc.update_event(
                 event_id=1,
                 payload=EventUpdateRequest(is_pinned=True),
