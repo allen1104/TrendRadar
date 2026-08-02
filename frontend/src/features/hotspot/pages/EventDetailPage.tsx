@@ -15,12 +15,15 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { useState } from 'react'
+
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
+import { AssistantPanel } from '@/features/assistant'
 import { hasRole, type Role } from '@/features/auth/types'
 import type { EventDetail } from '@/features/hotspot/api/hotspot'
 import {
@@ -52,6 +55,7 @@ export function EventDetailPage() {
   const user = useAuthStore((s) => s.user)
   const role: Role = user?.role ?? 'GUEST'
   const isEditor = hasRole(role, 'EDITOR')
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   const { data, isPending, isError, error } = useEventDetail(eventId, { pollWhilePending: true })
   const { data: trend } = useEventTrend(eventId)
@@ -93,7 +97,7 @@ export function EventDetailPage() {
         返回热点中心
       </Link>
 
-      <Header event={data} />
+      <Header event={data} onAskAI={() => setAssistantOpen(true)} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
@@ -145,13 +149,38 @@ export function EventDetailPage() {
       </div>
 
       {isEditor && <EditorBar event={data} />}
+
+      {/* 问 AI 抽屉（右滑出 480px，移动端全屏） */}
+      {assistantOpen && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm"
+          onClick={(e) => {
+            // 点击遮罩关闭
+            if (e.target === e.currentTarget) setAssistantOpen(false)
+          }}
+        >
+          <div
+            className="relative h-full w-full max-w-[480px] bg-background shadow-xl sm:w-[480px]"
+            role="dialog"
+            aria-label="问 AI"
+          >
+            <AssistantPanel
+              eventId={eventId}
+              eventTitle={data.title}
+              open={assistantOpen}
+              onClose={() => setAssistantOpen(false)}
+              isAuthenticated={user !== null}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ------------------------------------------------------------------ 分区组件
 
-function Header({ event }: { event: EventDetail }) {
+function Header({ event, onAskAI }: { event: EventDetail; onAskAI: () => void }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -187,6 +216,14 @@ function Header({ event }: { event: EventDetail }) {
           最后更新{' '}
           {formatDistanceToNow(new Date(event.lastSeenAt), { addSuffix: true, locale: zhCN })}
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={onAskAI}
+        >
+          💬 问 AI
+        </Button>
       </div>
     </div>
   )

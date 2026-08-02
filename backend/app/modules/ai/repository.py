@@ -1,13 +1,13 @@
 """ai-engine 数据访问层。"""
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.ai.model import (
-    AICallLog,
     AIModel,
     AIProvider,
     EventAnalysis,

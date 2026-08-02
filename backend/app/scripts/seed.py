@@ -303,6 +303,51 @@ async def seed_system_configs() -> None:
             "max_value": 100,
             "requires_rerun": False,
         },
+        # group: AI / assistant 模块（assistant 配置与 AI 限额共用 AI 组）
+        {
+            "config_key": "assistant_max_context_tokens",
+            "config_value": 24000,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "assistant 上下文 token 上限",
+            "description": "单次提问输入 prompt + articles + history 的总 token 上限；超出触发三级裁剪",
+            "min_value": 4000,
+            "max_value": 128000,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "assistant_thread_cost_limit_usd",
+            "config_value": 0.5,
+            "value_type": ValueType.FLOAT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "assistant 单会话成本上限（USD）",
+            "description": "累计费用达到此值后禁止继续提问，提示用户新建会话",
+            "min_value": 0.05,
+            "max_value": 10.0,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "assistant_quick_questions",
+            "config_value": [
+                {"key": "why_important", "label": "为什么重要？",
+                 "question": "这件事为什么重要？它对行业意味着什么？"},
+                {"key": "relation", "label": "和我有什么关系？",
+                 "question": "这件事和 AI 应用开发者的日常工作有什么关系？会影响哪些技术选型？"},
+                {"key": "innovation", "label": "有什么创新？",
+                 "question": "这件事的技术创新点具体是什么？和已有方案相比强在哪？"},
+                {"key": "worth_learn", "label": "适合学习吗？",
+                 "question": "如果我想深入学习这个方向，应该从哪里入手？需要什么前置知识？"},
+                {"key": "worth_write", "label": "值得写文章吗？",
+                 "question": "这个话题适合写成公众号文章吗？切入角度可以是什么？"},
+                {"key": "business", "label": "有商业价值吗？",
+                 "question": "这件事有什么商业机会？独立开发者能做什么产品？"},
+            ],
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "assistant 快捷问题列表",
+            "description": "事件详情页问 AI 抽屉的预设问题，ADMIN 可增删改",
+            "requires_rerun": False,
+        },
     ]
 
     async with AsyncSessionLocal() as session:
@@ -368,6 +413,51 @@ async def seed_prompt_templates() -> None:
             "max_tokens": 16,
             "is_active": True,
             "note": "v1 占位：embedding 实际由本地 ONNX 模型处理",
+        },
+        {
+            "task_key": TaskKey.ASSISTANT_QA.value,
+            "version": 1,
+            "system_prompt": (
+                "你是一名严谨的科技资讯编辑，正在帮助用户深入理解一个特定的科技热点事件。\n"
+                "回答必须严格遵守以下规则：\n"
+                "1. 只基于【来源文章】提供的材料回答，**绝不编造**任何具体数字、产品名、公司名或细节。\n"
+                "2. 如果材料中没有提到某个信息，明确说明「提供的资料中没有提到」。\n"
+                "3. 引用具体事实时用 `[编号]` 标注来源编号（编号见【来源文章】列表中的 `[1] [2] ...`）。\n"
+                "4. 保持客观、中立，避免营销腔；可以使用 Markdown 格式（列表、加粗、引用）。\n"
+                "5. 回答长度控制在 300-800 字之间，不要过长。"
+            ),
+            "user_prompt": (
+                "# 当前事件\n"
+                "标题：{{eventTitle}}\n"
+                "\n"
+                "已有分析（参考）：\n"
+                "{{eventSummary}}\n"
+                "\n"
+                "# 来源文章\n"
+                "{% for a in articles %}"
+                "- [{{ loop.index }}] {{ a.title }}（{{ a.source_name }}）\n"
+                "  链接：{{ a.url }}\n"
+                "  正文摘要：{{ a.content }}\n"
+                "{% endfor %}\n"
+                "\n"
+                "# 之前的对话（仅参考）\n"
+                "{% for h in history %}"
+                "- {{ h.role }}：{{ h.content }}\n"
+                "{% endfor %}\n"
+                "\n"
+                "# 当前问题\n"
+                "{{question}}\n"
+                "\n"
+                "请基于上述材料回答，记得用 `[编号]` 标注引用。"
+            ),
+            "variables": [
+                "eventTitle", "eventSummary", "articles", "history", "question",
+            ],
+            "model_alias": "default-chat",
+            "temperature": 0.4,
+            "max_tokens": 1500,
+            "is_active": True,
+            "note": "v1 初始版本：事件问答 + 引用标注 + 不编造约束",
         },
     ]
     async with AsyncSessionLocal() as session:

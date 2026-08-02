@@ -5,6 +5,7 @@
 """
 
 import hashlib
+
 import structlog
 
 from app.modules.ai.gateway.base import LLMProvider, register_provider
@@ -31,7 +32,7 @@ class LocalEmbeddingProvider(LLMProvider):
 
             self._model = TextEmbedding(model_name="BAAI/bge-m3", dim=self.dim)
             log.info("local_embedding.model_loaded", model="bge-m3", dim=self.dim)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("local_embedding.model_unavailable", error=str(exc), fallback="hash")
 
     async def chat(self, request: LLMRequest) -> LLMResponse:  # pragma: no cover
@@ -47,7 +48,7 @@ class LocalEmbeddingProvider(LLMProvider):
                     return [list(v) for v in self._model.embed(texts)]  # type: ignore[union-attr]
 
                 return await asyncio.to_thread(_run)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 log.warning("local_embedding.embed_failed", error=str(exc), fallback="hash")
 
         # 降级：确定性 hash 向量，保证流水线不中断

@@ -28,10 +28,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 from app.modules.ai.enums import (
     CallStatus,
-    EventAnalysisStatus,
     ModelType,
     ProviderKey,
-    TaskKey,
 )
 
 _JSONB = JSONB().with_variant(JSON(), "sqlite")

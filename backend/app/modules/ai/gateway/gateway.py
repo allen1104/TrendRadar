@@ -10,15 +10,15 @@
   ⑦ 全链失败 → 抛 LLMUnavailableError
 """
 
-import time
 import uuid
-from collections.abc import Callable
 from typing import Any
 
 import structlog
 from jinja2 import Environment, StrictUndefined, TemplateError
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from tenacity import (
     AsyncRetrying,
     RetryError,
@@ -27,8 +27,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.core.redis import RedisKey, redis_client
-from app.modules.ai.enums import CallStatus, ModelType, ProviderKey, TaskKey
+from app.modules.ai.enums import CallStatus, ModelType, ProviderKey
 from app.modules.ai.exceptions import (
     LLMUnavailableError,
     ModelNotFoundError,
@@ -38,8 +37,6 @@ from app.modules.ai.exceptions import (
 from app.modules.ai.gateway.base import get_provider_class
 from app.modules.ai.gateway.types import LLMRequest, LLMResponse
 from app.modules.ai.model import AICallLog, AIModel, AIProvider, PromptTemplate
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 log = structlog.get_logger()
 
@@ -102,7 +99,7 @@ class LLMGateway:
                 if is_fallback:
                     log.info("llm.fallback_success", task_key=task_key, model=model_alias)
                 return resp
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 last_error = exc
                 log.warning(
                     "llm.call_failed",
@@ -305,11 +302,11 @@ class LLMGateway:
             )
             self.session.add(log_row)
             await self.session.flush()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # 记账失败不能把整个 session 搞挂。回滚这一行，保留 session 可用
             try:
                 await self.session.rollback()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             log.error("llm.log_failed", error=str(exc))
 

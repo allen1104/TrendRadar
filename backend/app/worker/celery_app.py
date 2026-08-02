@@ -33,6 +33,7 @@ celery_app.autodiscover_tasks(
         "app.modules.admin",
         "app.modules.auth",
         "app.modules.ai",
+        "app.modules.assistant",
         "app.modules.source",
         "app.modules.pipeline",
         "app.modules.trend",
@@ -48,7 +49,6 @@ celery_app.autodiscover_tasks(
 #    时连接已就绪，再显式 import 模块一次）
 import asyncio as _asyncio
 
-from celery import signals as _celery_signals
 from celery.signals import worker_process_init as _wp_init
 
 
@@ -116,5 +116,10 @@ celery_app.conf.beat_schedule = {
     "trend-cleanup-old": {
         "task": "trend.cleanup",
         "schedule": crontab(minute="0", hour="4"),
+    },
+    # assistant 历史清理：每日 04:30 软删 180 天前的 thread + message
+    "assistant-cleanup-old-threads": {
+        "task": "assistant.cleanup_old_threads",
+        "schedule": crontab(minute="30", hour="4"),
     },
 }

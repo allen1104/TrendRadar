@@ -6,11 +6,12 @@
 
 import re
 import time
+from collections.abc import AsyncIterator
 
 import httpx
 import structlog
 from openai import AsyncOpenAI
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.core.security import decrypt_secret
 from app.modules.ai.gateway.base import LLMProvider, register_provider
@@ -76,6 +77,10 @@ class OpenAICompatibleProvider(LLMProvider):
             timeout=timeout,
             max_retries=0,  # 重试由 Gateway 层做
         )
+        # 流式 token / latency 缓存（assistant 流式场景使用）
+        self._last_prompt_tokens = 0
+        self._last_completion_tokens = 0
+        self._last_latency_ms = 0
 
     async def chat(self, request: LLMRequest) -> LLMResponse:
         start = time.perf_counter()
@@ -137,6 +142,41 @@ class OpenAICompatibleProvider(LLMProvider):
         # 真实价格在 AIModel 表里。这里只用于非数据库场景的兜底。
         return 0.0
 
+    async def stream_chat(self, request: LLMRequest) -> AsyncIterator[str]:
+        """流式生成（assistant 模块用）。
+
+        与 chat() 的差异：
+          - 不解析 schema（流式场景不需要结构化）
+          - 返回 AsyncIterator[str]，每次 yield 一个增量 delta
+          - token / latency 由 provider 自己写到 _last_* 属性，service 层读
+        """
+        kwargs: dict = {
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": request.temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},  # 末次 chunk 带回 usage
+        }
+        if request.max_tokens is not None:
+            kwargs["max_tokens"] = request.max_tokens
+
+        start = time.perf_counter()
+        # 结构化输出与流式互斥（OpenAI json_schema 不支持 stream）
+        # response_schema 在 service 层就不会传，这里也再保险一次
+        if request.response_schema is not None:
+            raise ValueError("流式模式不支持 response_schema")
+
+        stream = await self._client.chat.completions.create(**kwargs)
+        async for chunk in stream:
+            # 取 delta content
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+            # 末次 chunk 携带 usage
+            if hasattr(chunk, "usage") and chunk.usage is not None:
+                self._last_prompt_tokens = int(getattr(chunk.usage, "prompt_tokens", 0) or 0)
+                self._last_completion_tokens = int(getattr(chunk.usage, "completion_tokens", 0) or 0)
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
+
     async def list_remote_models(self) -> list[str]:
         try:
             async with httpx.AsyncClient(timeout=10) as c:
@@ -147,6 +187,6 @@ class OpenAICompatibleProvider(LLMProvider):
                 if r.status_code == 200:
                     data = r.json()
                     return [m["id"] for m in data.get("data", []) if "id" in m]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("openai_compatible.list_models_failed", error=str(exc))
         return []

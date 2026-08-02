@@ -16,13 +16,21 @@ from app.core.middleware import RequestContextMiddleware, TraceIdMiddleware
 from app.core.redis import redis_client
 from app.modules.admin.api import router as admin_router
 from app.modules.ai.api import router as ai_admin_router
-from app.modules.collection.api import (
-    folders_router as collection_folders_router,
-    items_router as collection_items_router,
-    stats_router as collection_stats_router,
+from app.modules.assistant.api import (
+    events_assistant_router as assistant_events_router,
 )
+from app.modules.assistant.api import threads_router as assistant_threads_router
 from app.modules.auth.api import admin_router as auth_admin_router
 from app.modules.auth.api import router as auth_router
+from app.modules.collection.api import (
+    folders_router as collection_folders_router,
+)
+from app.modules.collection.api import (
+    items_router as collection_items_router,
+)
+from app.modules.collection.api import (
+    stats_router as collection_stats_router,
+)
 from app.modules.hotspot.api import router as hotspot_router
 from app.modules.hotspot.api import tags_router as hotspot_tags_router
 from app.modules.pipeline.api import events_router as pipeline_events_router
@@ -141,3 +149,5 @@ app.include_router(pipeline_events_router, prefix=settings.API_V1_PREFIX)
 app.include_router(hotspot_router, prefix=settings.API_V1_PREFIX)
 app.include_router(hotspot_tags_router, prefix=settings.API_V1_PREFIX)
 app.include_router(trend_router, prefix=settings.API_V1_PREFIX)
+app.include_router(assistant_events_router, prefix=settings.API_V1_PREFIX)
+app.include_router(assistant_threads_router, prefix=settings.API_V1_PREFIX)

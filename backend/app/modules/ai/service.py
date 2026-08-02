@@ -5,42 +5,36 @@
 
 from __future__ import annotations
 
-import re
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import datetime
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decrypt_secret, encrypt_secret, mask_secret
+from app.core.security import encrypt_secret, mask_secret
 from app.modules.ai.enums import CallStatus, ModelType, ProviderKey, TaskKey
 from app.modules.ai.exceptions import (
     EmbeddingDimRequiredError,
     LLMUnavailableError,
     ModelAliasExistsError,
     ModelNotFoundError,
+    PromptNotFoundError,
+    PromptReadonlyError,
     ProviderInUseError,
     ProviderNameExistsError,
     ProviderNotFoundError,
     ProviderNotRegisteredError,
-    PromptNotConfiguredError,
-    PromptNotFoundError,
-    PromptReadonlyError,
 )
 from app.modules.ai.gateway.base import list_registered_providers
 from app.modules.ai.gateway.gateway import LLMGateway
 from app.modules.ai.model import (
     AICallLog,
-    AIModel,
     AIProvider,
-    EventAnalysis,
     PromptTemplate,
 )
 from app.modules.ai.repository import (
     AIModelRepository,
     AIProviderRepository,
-    EventAnalysisRepository,
     PromptTemplateRepository,
 )
 from app.modules.ai.schema import (
@@ -51,16 +45,16 @@ from app.modules.ai.schema import (
     ModelCreateRequest,
     ModelResponse,
     ModelUpdateRequest,
-    ProviderCreateRequest,
-    ProviderListItem,
-    ProviderResponse,
-    ProviderTestResponse,
     PromptCreateRequest,
     PromptDryRunRequest,
     PromptDryRunResponse,
     PromptListItem,
     PromptResponse,
     PromptUpdateRequest,
+    ProviderCreateRequest,
+    ProviderListItem,
+    ProviderResponse,
+    ProviderTestResponse,
     RegisteredProviderInfo,
 )
 
@@ -180,7 +174,7 @@ class ProviderService:
                 message="连接正常",
                 available_models=models[:50],
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             latency = int((time.perf_counter() - start) * 1000)
             return ProviderTestResponse(
                 success=False,
@@ -465,7 +459,6 @@ class PromptService:
 
         # 真正调一次 LLM
         gateway = LLMGateway(self.session)
-        from app.modules.ai.schema import EventAnalysisResult  # noqa: F401
 
         # 简化：若 task_key = event_analysis，用 EventAnalysisResult 强约束
         response_schema = None

@@ -15,23 +15,23 @@ from app.modules.ai.schema import (
     ModelCreateRequest,
     ModelResponse,
     ModelUpdateRequest,
-    ProviderCreateRequest,
-    ProviderListItem,
-    ProviderResponse,
-    ProviderTestResponse,
     PromptCreateRequest,
     PromptDryRunRequest,
     PromptDryRunResponse,
     PromptListItem,
     PromptResponse,
     PromptUpdateRequest,
+    ProviderCreateRequest,
+    ProviderListItem,
+    ProviderResponse,
+    ProviderTestResponse,
     RegisteredProviderInfo,
 )
 from app.modules.ai.service import (
     CostService,
     ModelService,
-    ProviderService,
     PromptService,
+    ProviderService,
 )
 
 router = APIRouter(prefix="/admin/ai", tags=["admin:ai"])

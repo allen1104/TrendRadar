@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from app.modules.ai.gateway.types import LLMRequest, LLMResponse
 
@@ -24,6 +24,14 @@ class LLMProvider(ABC):
     @abstractmethod
     async def list_remote_models(self) -> list[str]:
         """通过 /models 接口拉可用模型。失败返回 []。"""
+
+    async def stream_chat(self, request: LLMRequest) -> AsyncIterator[str]:  # type: ignore[override]
+        """流式生成。子类按需 override（仅 OpenAI 兼容实现支持）。"""
+        raise NotImplementedError(
+            f"Provider {self.provider_key} 不支持流式生成"
+        )
+        # 让类型检查器把 generator 视为 AsyncIterator[str]
+        yield ""  # pragma: no cover
 
 
 # ---------------------------------------------------------------- 注册表

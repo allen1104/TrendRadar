@@ -15,7 +15,8 @@
 - [x] 阶段 8 · 一期联调与验收（27/27 冒烟全过，详见 doc/ACCEPTANCE.md）
 - [x] 阶段 9 · 二期首模块 collection（40 单测 + typecheck/build 通过）
 - [x] 阶段 10 · trend 趋势分析（51 单测 + 全栈 372 测试无回归 + typecheck/build 通过）
-- [ ] 阶段 11 · 后续二期模块（assistant / creation / report）
+- [x] 阶段 11 · assistant AI 助手（67 单测 + 全栈 439 测试无回归 + typecheck/build 通过）
+- [ ] 阶段 12 · 后续二期模块（creation / report）
 
 ## 当前工作
 
@@ -26,7 +27,7 @@
 2. 文档补完（hotspot+collection+trend 跨模块联动写进 doc/ACCEPTANCE.md）
 3. 端到端冒烟补 trend 段（需要实跑的 Docker 环境 + aggregate_task 跑过夜）
 
-## 测试覆盖：372 passed
+## 测试覆盖：439 passed
 
 ## 模块完成度
 
