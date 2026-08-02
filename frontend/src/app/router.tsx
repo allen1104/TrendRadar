@@ -14,6 +14,8 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { CollectionPage } from '@/features/collection/pages/CollectionPage'
+import { CreationDraftsPage } from '@/features/creation/pages/CreationDraftsPage'
+import { CreationWorkspacePage } from '@/features/creation/pages/CreationWorkspacePage'
 import { EventDetailPage } from '@/features/hotspot/pages/EventDetailPage'
 import { HotspotPage } from '@/features/hotspot/pages/HotspotPage'
 import { KeywordDetailPage } from '@/features/trend/pages/KeywordDetailPage'
@@ -110,6 +112,22 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole minRole="USER">
             <ProfilePage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'creation/drafts',
+        element: (
+          <RequireRole minRole="USER">
+            <CreationDraftsPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'creation/drafts/:id',
+        element: (
+          <RequireRole minRole="USER">
+            <CreationWorkspacePage />
           </RequireRole>
         ),
       },

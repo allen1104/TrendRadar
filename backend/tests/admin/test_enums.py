@@ -43,6 +43,7 @@ class TestTargetType:
             "EVENT", "SOURCE", "USER", "PROMPT", "MODEL", "PROVIDER", "CONFIG", "SYSTEM",
             "COLLECTION_FOLDER", "COLLECTION_ITEM",
             "ASSISTANT_THREAD", "ASSISTANT_MESSAGE",
+            "CREATION_DRAFT",
         }
 
 

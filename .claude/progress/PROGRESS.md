@@ -16,18 +16,19 @@
 - [x] 阶段 9 · 二期首模块 collection（40 单测 + typecheck/build 通过）
 - [x] 阶段 10 · trend 趋势分析（51 单测 + 全栈 372 测试无回归 + typecheck/build 通过）
 - [x] 阶段 11 · assistant AI 助手（67 单测 + 全栈 439 测试无回归 + typecheck/build 通过）
-- [ ] 阶段 12 · 后续二期模块（creation / report）
+- [x] 阶段 12 · creation 内容创作（89 单测 + 全栈 528 测试无回归 + typecheck/build 通过）
+- [ ] 阶段 13 · 后续二期模块（report）
 
 ## 当前工作
 
-阶段 10 trend 模块完成：3 张表（event_daily_snapshot / keyword_trend / entity_trend）+ 5 个 API（关键词趋势 / 实体趋势 / 词云 / 总览 / 关键词下钻）+ aggregate_task + cleanup_task；增长率算法（3 日平滑 + 5x 截断 + emerging 标记）+ 关键词归一化 + 停用词过滤；frontend MVP（4 屏 + 下钻 + ECharts 折线/玫瑰/词云/雷达）通过 typecheck 与 build。
+阶段 12 creation 模块完成：1 张表 creation_draft + 30 个 prompt 模板（6 平台 × 5 风格）+ 7 个 API（options / SSE 流式 create / list / detail / PATCH / DELETE / SSE 流式 regenerate / 4 格式 export）+ Celery cleanup_failed_drafts；上下文 3-tier 裁剪（1500→800→400 字符、6 篇 cap）+ outline 先于正文返回；export 支持 Markdown / TXT / HTML / WECHAT_HTML（样式内联 + XSS 过滤）；frontend GenerationDialog + DraftEditor（流式渲染 + 三视图 + 自动保存 + 大纲导航 + 微信预览 mockup）+ CreationDraftsPage 通过 typecheck 与 build。
 
 下一步：
-1. 后续二期模块按 SPEC 顺序：assistant → creation → report
-2. 文档补完（hotspot+collection+trend 跨模块联动写进 doc/ACCEPTANCE.md）
-3. 端到端冒烟补 trend 段（需要实跑的 Docker 环境 + aggregate_task 跑过夜）
+1. 阶段 13 · report 日报中心（按 SPEC 顺序，最后一个二期模块）
+2. 文档补完（assistant + creation 跨模块联动写进 doc/ACCEPTANCE.md）
+3. 端到端冒烟补 trend / assistant / creation 段（需要实跑的 Docker 环境）
 
-## 测试覆盖：439 passed
+## 测试覆盖：528 passed
 
 ## 模块完成度
 
@@ -41,8 +42,8 @@
 | admin      | ✅    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | collection | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | trend      | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
-| assistant  | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
-| creation   | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
+| assistant  | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
+| creation   | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | report     | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
 
 ## 决策记录
@@ -69,3 +70,9 @@
 | 2026-08-02 | trend.api 用 `Annotated[str, Query()]` 接 enum 字符串而非原生 enum | FastAPI 原生 enum Query 失败返回 422 而非 SPEC 要求的 400；字符串 + service 校验抛 AppException 转 400 |
 | 2026-08-02 | aggregate_task 跨模块 inline-import pipeline.model / ai.model | 避免顶层循环依赖；aggregate 任务只在 02:00 跑一次，开销可接受 |
 | 2026-08-02 | Celery tasks 用 `asyncio.run(_run())` + `engine.dispose()` 模式 | 与 pipeline/admin 一致；Celery solo 跨多次 asyncio.run 共享连接池会失效 |
+| 2026-08-02 | creation service SSE 流式复用 assistant 的 provider.stream_chat 模式 | 避免每模块重写流式循环；`_stream_into_draft` 抽象为生成 / 重新生成共用 |
+| 2026-08-02 | creation 双轨 `content`（AI 原稿）vs `contentEdited`（用户编辑） | 防止「保存」覆盖原文，便于「恢复 AI 原稿」与版本对比 |
+| 2026-08-02 | creation prompt 用单一 system + Jinja2 user 模板（6×5=30 模板仅差 system 中的平台/风格描述） | 避免维护 30 份重复模板；变量集中（platform / style / targetWords / audience / extraRequirement） |
+| 2026-08-02 | creation outline 在首个 delta 事件后单独发送（不等 done） | 用户立刻看到结构，缓解长文等待焦虑 |
+| 2026-08-02 | 微信 HTML 导出把所有样式写进 `style` 属性（不依赖 `<style>` 标签） | 公众号编辑器会剥离 `<style>` 与 `<script>`；内联样式是唯一可靠路径 |
+| 2026-08-02 | `render_wechat_html` 跳过 ```代码块``` 与表格（转列表） | 公众号对代码高亮与表格支持差；保留正文可读性优先 |

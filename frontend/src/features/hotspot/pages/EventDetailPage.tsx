@@ -24,6 +24,8 @@ import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/toast'
 import { AssistantPanel } from '@/features/assistant'
+import { GenerationDialog } from '@/features/creation'
+import { useCreationOptions } from '@/features/creation/hooks/useCreation'
 import { hasRole, type Role } from '@/features/auth/types'
 import type { EventDetail } from '@/features/hotspot/api/hotspot'
 import {
@@ -56,6 +58,7 @@ export function EventDetailPage() {
   const role: Role = user?.role ?? 'GUEST'
   const isEditor = hasRole(role, 'EDITOR')
   const [assistantOpen, setAssistantOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const { data, isPending, isError, error } = useEventDetail(eventId, { pollWhilePending: true })
   const { data: trend } = useEventTrend(eventId)
@@ -97,7 +100,11 @@ export function EventDetailPage() {
         返回热点中心
       </Link>
 
-      <Header event={data} onAskAI={() => setAssistantOpen(true)} />
+      <Header
+        event={data}
+        onAskAI={() => setAssistantOpen(true)}
+        onCreate={() => setCreateOpen(true)}
+      />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
@@ -174,13 +181,91 @@ export function EventDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ✍️ 生成文章 弹窗 */}
+      <CreationEntry
+        eventId={data.id}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </div>
+  )
+}
+
+/** 内嵌组件：拉取创建选项 + 弹出 GenerationDialog → 创建后跳工作台。 */
+function CreationEntry({
+  eventId,
+  open,
+  onOpenChange,
+}: {
+  eventId: number
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  const navigate = useNavigate()
+  const { data: opts } = useCreationOptions()
+  if (!opts) return null
+  return (
+    <GenerationDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      platforms={opts.platforms}
+      styles={opts.styles}
+      estimatedCostUsd={0.02}
+      onSubmit={(body) => {
+        // 走 SSE；后端在 start 事件带 draftId，前端拿到后跳转工作台。
+        // 这里用 navigate 传 eventId 让工作台接续（实际生产可改为 query param）。
+        const ac = new AbortController()
+        void (async () => {
+          const resp = await fetch('/api/v1/creation/drafts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId, ...body }),
+            credentials: 'include',
+            signal: ac.signal,
+          })
+          if (!resp.body) return
+          const reader = resp.body.getReader()
+          const dec = new TextDecoder('utf-8')
+          let buf = ''
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buf += dec.decode(value, { stream: true })
+            const sep = buf.indexOf('\n\n')
+            if (sep !== -1) {
+              const frame = buf.slice(0, sep)
+              const m = /event: start\ndata: (\{.+\})/.exec(frame)
+              if (m) {
+                try {
+                  const data = JSON.parse(m[1])
+                  if (data.draftId) navigate(`/creation/drafts/${data.draftId}`)
+                  ac.abort()
+                  return
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
+          }
+        })()
+      }}
+    />
   )
 }
 
 // ------------------------------------------------------------------ 分区组件
 
-function Header({ event, onAskAI }: { event: EventDetail; onAskAI: () => void }) {
+function Header({
+  event,
+  onAskAI,
+  onCreate,
+}: {
+  event: EventDetail
+  onAskAI: () => void
+  onCreate: () => void
+}) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -223,6 +308,17 @@ function Header({ event, onAskAI }: { event: EventDetail; onAskAI: () => void })
           onClick={onAskAI}
         >
           💬 问 AI
+        </Button>
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={onCreate}
+          disabled={event.status !== 'ANALYZED'}
+          title={event.status !== 'ANALYZED' ? '事件需完成 AI 分析后才能生成' : undefined}
+        >
+          ✍️ 生成文章
         </Button>
       </div>
     </div>

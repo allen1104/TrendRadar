@@ -348,6 +348,18 @@ async def seed_system_configs() -> None:
             "description": "事件详情页问 AI 抽屉的预设问题，ADMIN 可增删改",
             "requires_rerun": False,
         },
+        # creation 上下文 token 上限
+        {
+            "config_key": "creation_max_context_tokens",
+            "config_value": 20000,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.AI.value,
+            "display_name": "creation 上下文 token 上限",
+            "description": "单次生成输入 event + articles + 参数的总 token 上限；超出触发三级裁剪",
+            "min_value": 4000,
+            "max_value": 128000,
+            "requires_rerun": False,
+        },
     ]
 
     async with AsyncSessionLocal() as session:
@@ -460,6 +472,9 @@ async def seed_prompt_templates() -> None:
             "note": "v1 初始版本：事件问答 + 引用标注 + 不编造约束",
         },
     ]
+    # creation 平台 × 风格 = 30 个 prompt 模板
+    creation_templates = _build_creation_prompts()
+    templates.extend(creation_templates)
     async with AsyncSessionLocal() as session:
         repo = PromptTemplateRepository(session)
         for tpl in templates:
@@ -563,7 +578,107 @@ async def seed_sources() -> None:
         log.info("seed.sources.done", total=len(presets))
 
 
-async def main() -> None:
+def _build_creation_prompts() -> list[dict]:
+    """构造 creation 6 平台 × 5 风格 = 30 个 prompt 模板。
+
+    System prompt：定义角色 + 平台 + 风格
+    User prompt：用 Jinja2 模板渲染事件上下文 + 平台规格 + 风格规格 + 用户参数
+    输出约定：
+      - 文首第一行写 `# 标题`
+      - 紧随可写 `COVER: 描述` 与 `TAGS: tag1, tag2`
+      - 然后是 Markdown 正文
+    """
+    from app.modules.ai.enums import TaskKey
+
+    platforms = [
+        ("WECHAT", "微信公众号", 1500, 3000,
+         "带钩子开头与小标题分段，结尾引导关注；不用 Markdown 表格；语言流畅、有节奏感"),
+        ("BLOG", "技术博客", 2000, 4000,
+         "标准 Markdown、代码块、表格、公式、结尾附参考链接"),
+        ("WEIBO", "微博", 60, 140,
+         "≤140 字；带 #话题# 标签 2-3 个；可分 2-3 条短串，每条独立成段"),
+        ("XHS", "小红书", 300, 600,
+         "emoji 分段、口语化、有画面感；结尾 #话题# 标签 5-8 个"),
+        ("ZHIHU", "知乎回答", 800, 2000,
+         "先给结论，再分点论述；适度引用数据与文献；避免营销腔；语言克制有逻辑"),
+        ("MARKDOWN", "纯 Markdown", 1000, 3000,
+         "无平台修饰；纯技术记录；可含代码块、表格、引用块"),
+    ]
+    styles = [
+        ("TECHNICAL", "技术分析",
+         "冷静客观、重原理与实现、少形容词；可含伪代码与架构图描述；目标读者是开发者"),
+        ("MARKETING", "营销风格",
+         "强钩子、痛点切入、场景化、有行动号召；多用感叹与对比；目标读者是潜在用户"),
+        ("DEEP_DIVE", "深度解读",
+         "背景→现状→影响→展望；长段论述；引用多方观点；适合公众号/技术博客深度文章"),
+        ("NEWS", "新闻报道",
+         "倒金字塔、5W1H、中立陈述、时间线清晰；开头给出核心事实；不评论"),
+        ("CASUAL", "轻松科普",
+         "类比通俗、少术语、有画面感、像讲故事；适合非技术读者"),
+    ]
+
+    system_common = (
+        "你是一名资深内容创作者，正在把一个科技热点事件改写成指定平台与风格的稿件。\n"
+        "硬性要求：\n"
+        "1. 只基于【来源文章】与【事件已有分析】写作，**绝不编造**未在材料中出现的数据、产品名、公司名或细节。\n"
+        "2. 严格遵守目标平台的字数区间（写作时心里有数，输出尽量落在区间内）。\n"
+        "3. 输出格式约定：\n"
+        "   - 第一行：`# 标题`（不超过 30 字，不带其他符号）\n"
+        "   - 第二行（可选）：`COVER: 封面图建议描述`\n"
+        "   - 第三行（可选）：`TAGS: tag1, tag2, tag3`（≤8 个，用英文逗号分隔）\n"
+        "   - 第四行起：Markdown 正文\n"
+        "4. 不出现 `参考资料`、`编辑注` 等元说明文字——直接产出可发布的稿件。\n"
+        "5. 中文输出；专有名词可保留英文（如 GPT-5、LangGraph）。"
+    )
+
+    out: list[dict] = []
+    for plat_key, plat_name, lo, hi, plat_desc in platforms:
+        for style_key, style_name, style_desc in styles:
+            user_prompt = (
+                f"# 目标平台\n{plat_name}（{plat_key}）\n"
+                f"- 字数区间：{lo}-{hi} 字\n"
+                f"- 平台约束：{plat_desc}\n\n"
+                f"# 目标风格\n{style_name}（{style_key}）\n"
+                f"- 风格要求：{style_desc}\n\n"
+                f"# 事件信息\n"
+                f"- 标题：{{{{ eventTitle }}}}\n"
+                f"- AI 已有分析：\n{{{{ eventAnalysis }}}}\n\n"
+                f"# 来源文章（按权重与篇幅排序）\n"
+                f"{{% for a in articles %}}"
+                f"- [{{{{ loop.index }}}}] {{{{ a.title }}}}（{{{{ a.source_name }}}}）\n"
+                f"  正文：{{{{ a.content }}}}\n"
+                f"{{% endfor %}}\n\n"
+                f"# 用户额外要求\n"
+                f"{{% if extraRequirement %}}- 附加要求：{{{{ extraRequirement }}}}{{% endif %}}\n"
+                f"{{% if audience %}}- 目标读者：{{{{ audience }}}}{% endif %}\n"
+                f"- 目标字数：{{{{ targetWords }}}}\n\n"
+                f"请按上述约定输出完整稿件。"
+            )
+            task_key_str = f"creation_{plat_key.lower()}"
+            out.append(
+                {
+                    "task_key": task_key_str,
+                    "version": 1,
+                    "system_prompt": system_common,
+                    "user_prompt": user_prompt,
+                    "variables": [
+                        "eventTitle",
+                        "eventAnalysis",
+                        "articles",
+                        "targetWords",
+                        "audience",
+                        "extraRequirement",
+                        "style",
+                        "platform",
+                    ],
+                    "model_alias": "default-chat",
+                    "temperature": 0.55,
+                    "max_tokens": 4000,
+                    "is_active": True,
+                    "note": f"v1 初始版本：{plat_name} × {style_name}",
+                }
+            )
+    return out
     await seed_admin_user()
     await seed_prompt_templates()
     await seed_system_configs()

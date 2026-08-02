@@ -31,6 +31,7 @@ from app.modules.collection.api import (
 from app.modules.collection.api import (
     stats_router as collection_stats_router,
 )
+from app.modules.creation.api import router as creation_router
 from app.modules.hotspot.api import router as hotspot_router
 from app.modules.hotspot.api import tags_router as hotspot_tags_router
 from app.modules.pipeline.api import events_router as pipeline_events_router
@@ -151,3 +152,4 @@ app.include_router(hotspot_tags_router, prefix=settings.API_V1_PREFIX)
 app.include_router(trend_router, prefix=settings.API_V1_PREFIX)
 app.include_router(assistant_events_router, prefix=settings.API_V1_PREFIX)
 app.include_router(assistant_threads_router, prefix=settings.API_V1_PREFIX)
+app.include_router(creation_router, prefix=settings.API_V1_PREFIX)

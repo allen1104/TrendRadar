@@ -3,6 +3,7 @@
 认证与权限。为其他所有模块提供身份识别与 RBAC 基础。
 
 需求：[doc/SPEC-auth.md](../../../../doc/SPEC-auth.md)
+开发账号与首次启动：[DEV_SETUP.md](../../DEV_SETUP.md)
 
 ---
 

@@ -34,6 +34,7 @@ celery_app.autodiscover_tasks(
         "app.modules.auth",
         "app.modules.ai",
         "app.modules.assistant",
+        "app.modules.creation",
         "app.modules.source",
         "app.modules.pipeline",
         "app.modules.trend",
@@ -121,5 +122,10 @@ celery_app.conf.beat_schedule = {
     "assistant-cleanup-old-threads": {
         "task": "assistant.cleanup_old_threads",
         "schedule": crontab(minute="30", hour="4"),
+    },
+    # creation 失败草稿清理：每日 03:30 软删 status=FAILED 且超过 7 天的 draft
+    "creation-cleanup-failed-drafts": {
+        "task": "creation.cleanup_failed_drafts",
+        "schedule": crontab(minute="30", hour="3"),
     },
 }

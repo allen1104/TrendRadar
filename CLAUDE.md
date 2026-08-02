@@ -10,7 +10,7 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 **AI**       统一 LLM 网关，多 Provider 可配置（OpenAI 兼容 / Anthropic / Gemini）· 本地 bge-m3 embedding
 **Deploy**   Docker Compose
 
-## ⚡ 当前模块：assistant → 下一模块 creation
+## ⚡ 当前模块：creation → 下一模块 report
 
 （每次开始新模块时更新这一行，例如：⚡ 当前模块：管理后台 admin）
 
@@ -29,7 +29,7 @@ AI 驱动的全球科技热点发现平台。不是帮你看新闻，是帮你�
 - [x] collection — 收藏系统 · [Module README](backend/app/modules/collection/README.md)
 - [x] trend — 趋势分析 · [Module README](backend/app/modules/trend/README.md)
 - [x] assistant — AI 助手 · [Module README](backend/app/modules/assistant/README.md)
-- [ ] creation — 内容创作
+- [x] creation — 内容创作 · [Module README](backend/app/modules/creation/README.md)
 - [ ] report — 日报中心
 
 **开发顺序**：`auth` → `ai-engine` → `source` → `pipeline` → `hotspot` → `admin`
