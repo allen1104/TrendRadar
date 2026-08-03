@@ -44,6 +44,7 @@ class TestTargetType:
             "COLLECTION_FOLDER", "COLLECTION_ITEM",
             "ASSISTANT_THREAD", "ASSISTANT_MESSAGE",
             "CREATION_DRAFT",
+            "REPORT", "REPORT_ITEM", "REPORT_SUBSCRIPTION",
         }
 
 

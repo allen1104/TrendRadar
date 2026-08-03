@@ -360,6 +360,65 @@ async def seed_system_configs() -> None:
             "max_value": 128000,
             "requires_rerun": False,
         },
+        # report 日报中心配置（独立 SCHEDULE 组）
+        {
+            "config_key": "report_generate_cron",
+            "config_value": "0 8 * * *",
+            "value_type": ValueType.STRING.value,
+            "group_name": ConfigGroup.SCHEDULE.value,
+            "display_name": "日报生成调度（cron）",
+            "description": "每日该时刻为 AI/TECH/GITHUB/AGENT 四类各生成一份日报",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "report_auto_publish",
+            "config_value": False,
+            "value_type": ValueType.BOOL.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "日报自动发布",
+            "description": "true：生成后直接 PUBLISHED；false：保持 DRAFT 待 EDITOR 审核",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "report_min_items",
+            "config_value": {"AI": 5, "TECH": 6, "GITHUB": 4, "AGENT": 3},
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "日报最小条目数（候选池不足则跳过）",
+            "description": "当日该类型候选事件数低于此值则跳过当日日报",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "report_max_items",
+            "config_value": {"AI": 12, "TECH": 15, "GITHUB": 12, "AGENT": 10},
+            "value_type": ValueType.JSON.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "日报最大条目数",
+            "description": "AI 编排从候选池中最多挑选的条目数",
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "report_webhook_timeout",
+            "config_value": 10,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "Webhook 推送超时（秒）",
+            "description": "POST 到订阅者 webhookUrl 的超时时间",
+            "min_value": 1,
+            "max_value": 60,
+            "requires_rerun": False,
+        },
+        {
+            "config_key": "report_webhook_retries",
+            "config_value": 3,
+            "value_type": ValueType.INT.value,
+            "group_name": ConfigGroup.GENERAL.value,
+            "display_name": "Webhook 推送重试次数",
+            "description": "推送失败后的重试次数（指数退避）",
+            "min_value": 0,
+            "max_value": 10,
+            "requires_rerun": False,
+        },
     ]
 
     async with AsyncSessionLocal() as session:
@@ -470,6 +529,41 @@ async def seed_prompt_templates() -> None:
             "max_tokens": 1500,
             "is_active": True,
             "note": "v1 初始版本：事件问答 + 引用标注 + 不编造约束",
+        },
+        {
+            "task_key": TaskKey.REPORT_DAILY.value,
+            "version": 1,
+            "system_prompt": (
+                "你是一名资深科技日报编辑，擅长从当日热点事件中挑选最有价值的 8-12 条并按板块编排。"
+                "严格按 JSON 结构输出；只使用候选事件提供的 event_id；标题可改写但需保留原意；"
+                "简述 80-150 字，客观中性、不夹带营销腔；导语 150-300 字综合当日要点。"
+            ),
+            "user_prompt": (
+                "# 任务\n"
+                "为「{{reportType}} · {{reportDate}}」挑选 {{minItems}}-{{maxItems}} 条事件并按板块编排成一份日报。\n"
+                "\n"
+                "# 板块（必须严格使用以下板块名之一）\n"
+                "{% for s in sections %}- {{ s }}\n{% endfor %}\n"
+                "# 候选事件\n"
+                "{% for c in candidates %}- [{{ loop.index }}] id={{ c.event_id }} 标题：{{ c.title }}\n"
+                "  一句话：{{ c.summary_one_line }}\n"
+                "  推荐指数：{{ c.recommend_index }}  分类：{{ c.categories }}  来源数：{{ c.source_count }}\n"
+                "{% endfor %}\n"
+                "# 输出要求\n"
+                "1. 严格返回 JSON，包含 title / intro / outro / sections 字段；\n"
+                "2. sections 是数组，每个板块包含 name 与 items 数组；\n"
+                "3. 每条 item 包含 event_id（必须来自候选）/ section（板块名）/ headline / brief / is_top（板块头条）；\n"
+                "4. 各板块头条数 ≤ 1，整体头条数 ≤ 1；\n"
+                "5. intro 写当日要点综合；outro 用「以上就是今天的 {{ reportType }}，明天见。」作为兜底。"
+            ),
+            "variables": [
+                "reportType", "reportDate", "sections", "minItems", "maxItems", "candidates",
+            ],
+            "model_alias": "default-chat",
+            "temperature": 0.4,
+            "max_tokens": 4000,
+            "is_active": True,
+            "note": "v1 初始版本：日报编排 schema 强约束 + 板块定义",
         },
     ]
     # creation 平台 × 风格 = 30 个 prompt 模板
@@ -650,7 +744,7 @@ def _build_creation_prompts() -> list[dict]:
                 f"{{% endfor %}}\n\n"
                 f"# 用户额外要求\n"
                 f"{{% if extraRequirement %}}- 附加要求：{{{{ extraRequirement }}}}{{% endif %}}\n"
-                f"{{% if audience %}}- 目标读者：{{{{ audience }}}}{% endif %}\n"
+                f"{{% if audience %}}- 目标读者：{{{{ audience }}}}{{% endif %}}\n"
                 f"- 目标字数：{{{{ targetWords }}}}\n\n"
                 f"请按上述约定输出完整稿件。"
             )
@@ -679,6 +773,9 @@ def _build_creation_prompts() -> list[dict]:
                 }
             )
     return out
+
+
+async def main() -> None:
     await seed_admin_user()
     await seed_prompt_templates()
     await seed_system_configs()

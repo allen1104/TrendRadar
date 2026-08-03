@@ -35,6 +35,7 @@ celery_app.autodiscover_tasks(
         "app.modules.ai",
         "app.modules.assistant",
         "app.modules.creation",
+        "app.modules.report",
         "app.modules.source",
         "app.modules.pipeline",
         "app.modules.trend",
@@ -127,5 +128,10 @@ celery_app.conf.beat_schedule = {
     "creation-cleanup-failed-drafts": {
         "task": "creation.cleanup_failed_drafts",
         "schedule": crontab(minute="30", hour="3"),
+    },
+    # report 每日生成：每日 08:00 为 AI/TECH/GITHUB/AGENT 四类各生成一份
+    "report-generate-daily": {
+        "task": "report.generate_daily_reports",
+        "schedule": crontab(minute="0", hour="8"),
     },
 }

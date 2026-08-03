@@ -18,16 +18,18 @@ import { CreationDraftsPage } from '@/features/creation/pages/CreationDraftsPage
 import { CreationWorkspacePage } from '@/features/creation/pages/CreationWorkspacePage'
 import { EventDetailPage } from '@/features/hotspot/pages/EventDetailPage'
 import { HotspotPage } from '@/features/hotspot/pages/HotspotPage'
+import { AdminReportsPage } from '@/features/report/pages/AdminReportsPage'
+import { ReportReaderPage } from '@/features/report/pages/ReportReaderPage'
+import { ReportsPage } from '@/features/report/pages/ReportsPage'
+import { SubscriptionPage } from '@/features/report/pages/SubscriptionPage'
 import { KeywordDetailPage } from '@/features/trend/pages/KeywordDetailPage'
 import { TrendPage } from '@/features/trend/pages/TrendPage'
 
-function Placeholder({ title, module }: { title: string; module: string }) {
+function NotFound() {
   return (
-    <div className="mx-auto max-w-3xl p-12 text-center">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-2 text-muted-foreground">
-        该模块尚未实现，需求见 <code className="text-sm">doc/SPEC-{module}.md</code>
-      </p>
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2">
+      <p className="text-5xl font-bold text-muted-foreground">404</p>
+      <p className="text-muted-foreground">页面不存在</p>
     </div>
   )
 }
@@ -98,7 +100,24 @@ export const router = createBrowserRouter([
       },
       { path: 'trends', element: <TrendPage /> },
       { path: 'trends/:keyword', element: <KeywordDetailPage /> },
-      { path: 'reports', element: <Placeholder title="日报中心" module="report" /> },
+      { path: 'reports', element: <ReportsPage /> },
+      { path: 'reports/:id', element: <ReportReaderPage /> },
+      {
+        path: 'reports/subscription',
+        element: (
+          <RequireRole minRole="USER">
+            <SubscriptionPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'admin/reports',
+        element: (
+          <RequireRole minRole="EDITOR">
+            <AdminReportsPage />
+          </RequireRole>
+        ),
+      },
       {
         path: 'collections',
         element: (
@@ -159,12 +178,3 @@ export const router = createBrowserRouter([
     ],
   },
 ])
-
-function NotFound() {
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2">
-      <p className="text-5xl font-bold text-muted-foreground">404</p>
-      <p className="text-muted-foreground">页面不存在</p>
-    </div>
-  )
-}

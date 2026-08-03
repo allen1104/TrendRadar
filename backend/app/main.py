@@ -36,6 +36,8 @@ from app.modules.hotspot.api import router as hotspot_router
 from app.modules.hotspot.api import tags_router as hotspot_tags_router
 from app.modules.pipeline.api import events_router as pipeline_events_router
 from app.modules.pipeline.api import router as pipeline_admin_router
+from app.modules.report.api import admin_router as report_admin_router
+from app.modules.report.api import router as report_router
 from app.modules.source.api import router as source_admin_router
 from app.modules.trend.api import router as trend_router
 
@@ -153,3 +155,5 @@ app.include_router(trend_router, prefix=settings.API_V1_PREFIX)
 app.include_router(assistant_events_router, prefix=settings.API_V1_PREFIX)
 app.include_router(assistant_threads_router, prefix=settings.API_V1_PREFIX)
 app.include_router(creation_router, prefix=settings.API_V1_PREFIX)
+app.include_router(report_router, prefix=settings.API_V1_PREFIX)
+app.include_router(report_admin_router, prefix=settings.API_V1_PREFIX)

@@ -1,6 +1,6 @@
 # 开发进度
 
-最后更新: 2026-08-01
+最后更新: 2026-08-02
 
 ## 阶段
 
@@ -17,18 +17,18 @@
 - [x] 阶段 10 · trend 趋势分析（51 单测 + 全栈 372 测试无回归 + typecheck/build 通过）
 - [x] 阶段 11 · assistant AI 助手（67 单测 + 全栈 439 测试无回归 + typecheck/build 通过）
 - [x] 阶段 12 · creation 内容创作（89 单测 + 全栈 528 测试无回归 + typecheck/build 通过）
-- [ ] 阶段 13 · 后续二期模块（report）
+- [x] 阶段 13 · report 日报中心（89 单测 + 全栈 617 测试无回归 + typecheck/build 通过）
 
 ## 当前工作
 
-阶段 12 creation 模块完成：1 张表 creation_draft + 30 个 prompt 模板（6 平台 × 5 风格）+ 7 个 API（options / SSE 流式 create / list / detail / PATCH / DELETE / SSE 流式 regenerate / 4 格式 export）+ Celery cleanup_failed_drafts；上下文 3-tier 裁剪（1500→800→400 字符、6 篇 cap）+ outline 先于正文返回；export 支持 Markdown / TXT / HTML / WECHAT_HTML（样式内联 + XSS 过滤）；frontend GenerationDialog + DraftEditor（流式渲染 + 三视图 + 自动保存 + 大纲导航 + 微信预览 mockup）+ CreationDraftsPage 通过 typecheck 与 build。
+阶段 13 report 模块完成：3 张表（report / report_item / report_subscription）+ 1 个 report_daily Prompt + 6 项系统配置（report_generate_cron / report_auto_publish / report_min_items / report_max_items / report_webhook_timeout / report_webhook_retries）+ 14 个 API（公开：list / latest / 详情 / 4 格式 export / RSS XML；登录：subscription 增删改查 + RSS 令牌；EDITOR：admin/generate + PATCH + publish + items 增删改；ADMIN：unpublish）+ Celery generate_daily_reports（每日 08:00 并行生成 AI/TECH/GITHUB/AGENT 四类）；候选池筛选（AI/LLM/AGENT/MCP categories / GITHUB JOIN source.category='CODE' / 其他全 ANALYZED）→ 不足 min_items 跳过；AI 编排走 LMGateway.call + PydanticAI ReportStructure schema 强约束 → 越界 eventId 丢弃；4 格式导出（Markdown 原样 / HTML 完整文档 / WECHAT_HTML 样式内联 / PDF weasyprint 降级 HTML）+ _sanitize_inline_style 去 `<script>` / `on*=` / `javascript:`；RSS 2.0 XML（公开无 token / 私有 token 按订阅类型过滤，最近 30 期）；订阅推送 webhook 用 httpx 超时 10s 3 次重试，SITE/EMAIL 一期占位；view_count 10 分钟同 IP Redis 去重；frontend ReportsPage（4 类型 Tab + 分页）/ ReportReaderPage（板块卡片 + 4 格式导出 + 头条角标）/ AdminReportsPage（手动生成 + 状态表 + 状态 Badge）/ SubscriptionPage（类型 + 渠道 + RSS 链接 + 重置令牌）通过 typecheck 与 build。
 
 下一步：
-1. 阶段 13 · report 日报中心（按 SPEC 顺序，最后一个二期模块）
-2. 文档补完（assistant + creation 跨模块联动写进 doc/ACCEPTANCE.md）
-3. 端到端冒烟补 trend / assistant / creation 段（需要实跑的 Docker 环境）
+1. 文档补完（trend / assistant / creation / report 跨模块联动写进 doc/ACCEPTANCE.md）
+2. 端到端冒烟补 trend / assistant / creation / report 段（需要实跑的 Docker 环境）
+3. 后续可选迭代：邮件 SMTP、Push 站内通知、日报阅读页目录导航、板块拖拽编辑器
 
-## 测试覆盖：528 passed
+## 测试覆盖：617 passed
 
 ## 模块完成度
 
@@ -44,7 +44,7 @@
 | trend      | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | assistant  | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 | creation   | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
-| report     | —    | ⬜     | ⬜    | ⬜    | ⬜       | ⬜   | ⬜    | ⬜    | ⏳ 未开始 |
+| report     | —    | ✅     | ✅    | ✅    | ✅       | ✅   | ✅    | ✅    | ✅ 已完成 |
 
 ## 决策记录
 
@@ -76,3 +76,10 @@
 | 2026-08-02 | creation outline 在首个 delta 事件后单独发送（不等 done） | 用户立刻看到结构，缓解长文等待焦虑 |
 | 2026-08-02 | 微信 HTML 导出把所有样式写进 `style` 属性（不依赖 `<style>` 标签） | 公众号编辑器会剥离 `<style>` 与 `<script>`；内联样式是唯一可靠路径 |
 | 2026-08-02 | `render_wechat_html` 跳过 ```代码块``` 与表格（转列表） | 公众号对代码高亮与表格支持差；保留正文可读性优先 |
+| 2026-08-02 | report 编排输出用单一 ReportStructure Pydantic schema（LLMGateway.call response_schema） | 与 assistant/event_analysis 复用同一强约束路径；不维护多套 JSON parser |
+| 2026-08-02 | report 候选池 SQL 用原生 text() + 占位 `{filter_extra}` 字符串拼接 | ORM 难以表达 `categories ? 'AI'`（PG JSONB 包含）与 `EXISTS JOIN source.category='CODE'`；分类型注入条件最直观 |
+| 2026-08-02 | report 候选池不足不抛 4xx 而是用 CandidatesInsufficientError + 200 skipped | Celery 任务每日跳过的语义不应阻塞 Beat；admin 手动接口也走同一路径 |
+| 2026-08-02 | report api.py 字面量路由（/rss /subscription /latest）必须注册在 /{report_id} 之前 | FastAPI 按注册顺序匹配，/rss 会被匹配为 report_id='rss'（int parse 失败 422） |
+| 2026-08-02 | report view_count 用 Redis 10 分钟同 IP 去重（key=report:view:{id}:{ip}） | 避免刷新刷量；Redis 故障降级放行不阻塞主流程 |
+| 2026-08-02 | report 推送 WEBHOOK 用 httpx + 超时 10s + 3 次重试（仅 5xx 重试） | 同步阻塞但超时可控；失败订阅者下次发布仍会再尝试（不立即禁用） |
+| 2026-08-02 | report PDF 导出 weasyprint 不可用时降级返回 HTML（content-type 仍 application/pdf） | 部署环境不一定装 libpango/harfbuzz；保留接口契约，前端用 blob 下载 |
